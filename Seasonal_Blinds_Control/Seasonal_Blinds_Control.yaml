@@ -4,7 +4,7 @@ blueprint:
     Automatische Steuerung von Rollläden basierend auf Sonnenaufgang und Jahreszeiten.
     Berücksichtigt Zeitzonen, Sommerzeit und bietet robuste Fehlerbehandlung.
   domain: automation
-  source_url: https://github.com/jard4101/friendly-octo-guide
+  source_url: https://github.com/jard4101/seasonal_blinds_control
   author: jard4101
 
   input:
