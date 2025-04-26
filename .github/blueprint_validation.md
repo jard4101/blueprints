@@ -1,99 +1,75 @@
-{
-  "blueprint_validation": {
-    "metadata": {
-      "version": "3.0",
-      "author": "Home Assistant Community",
-      "last_modified": "2025-04-27",
-      "compatibility": "Home Assistant 2025.4+ (letzte 4 Versionen)"
-    },
-    "validation_rules": {
-      "syntax_checks": {
-        "description": "YAML-Struktur und Blueprint-Metadaten",
-        "methods": [
-          "yamllint Validierung",
-          "Selector-Typenprüfung gemäß HA-Dokumentation",
-          "Verbotene YAML-Tags-Erkennung (z.B. !!timestamp)",
-          "!input-Referenzprüfung mit Dependency-Graphen"
-        ]
-      },
-      "input_validation": {
-        "description": "Erweiterte Eingabeprüfung",
-        "testcases": [
-          "Regex-Validierung für Text-Inputs",
-          "Automatische Fallback-Wertgenerierung",
-          "Domain-spezifische Entity-ID-Validierung",
-          "Numerische Grenzwertsimulation (Min/Max)"
-        ]
-      },
-      "logic_checks": {
-        "time_handling": [
-          "UTC/Lokalzeit-Konvertierung",
-          "Sommerzeit-Übergangsszenarien",
-          "Jahreswechsel-Behandlung"
-        ],
-        "concurrency": [
-          "Race-Condition-Erkennung",
-          "Throttle/Delay-Mechanismen",
-          "Parallele Service-Call-Orchestrierung"
-        ],
-        "entity_handling": [
-          "Case-sensitive Entity-Prüfung",
-          "Unavailable-Status-Fallback",
-          "Massenoperationen-Batchverarbeitung"
-        ]
-      },
-      "performance_checks": {
-        "analysis": [
-          "Algorithmische Komplexitätsbewertung (O-Notation)",
-          "Redundanzprüfung bei Service Calls",
-          "Speicherverbrauchsprofilierung"
-        ]
-      },
-      "documentation": {
-        "requirements": [
-          "Beispielkonfiguration mit Realwerten",
-          "Versionsabhängigkeiten dokumentieren",
-          "Bekannte Einschränkungen auflisten",
-          "Änderungshistorie pflegen"
-        ]
-      },
-      "error_handling": {
-        "classification": [
-          {"type": "Kritisch", "examples": ["Syntaxfehler", "Ungültige Selectors"]},
-          {"type": "Logik", "examples": ["Zeitstempelfehler", "Race Conditions"]},
-          {"type": "Warnung", "examples": ["Undokumentierte Parameter"]}
-        ]
-      }
-    },
-    "validation_workflow": {
-      "steps": [
-        "Statische Codeanalyse",
-        "Dynamische HA-Simulation",
-        "Lasttest (High-Frequency-Trigger)",
-        "Netzwerkausfall-Szenario"
-      ],
-      "output": {
-        "format": "Erweitertes JSON-Report",
-        "elements": [
-          "Zeilenbasierte Fehlerlokalisierung",
-          "Kontextsensitive Lösungsvorschläge",
-          "Performance-Kennzahlen (Laufzeit/Speicher)"
-        ]
-      }
-    },
-    "integration": {
-      "testing": {
-        "automated": [
-          "YAML-Linter-Pipeline",
-          "Unit/Integration-Test-Suite",
-          "HA-Neustart-Simulation"
-        ],
-        "manual": [
-          "Grenzwert-Testmatrix",
-          "Multi-User-Stresstest",
-          "Geräte-Fallback-Szenarien"
-        ]
-      }
-    }
-  }
-}
+blueprint_validation:
+  metadata:
+    version: "3.0"
+    author: "Home Assistant Community"
+    last_modified: "2025-04-27"
+    compatibility: "Home Assistant 2025.4+ (4 letzte Versionen)"
+  
+  validation_rules:
+    syntax_checks:
+      description: "YAML-Struktur und Blueprint-Metadaten"
+      methods:
+        - "YAML-Validierung (Einrückung, Tabs vs. Leerzeichen)"
+        - "!input-Referenzprüfung"
+        - "Selector-Typen gemäß HA-Dokumentation"
+        - "Unerlaubte YAML-Tags Prüfung"
+
+    input_validation:
+      description: "Eingabeparameter-Edge-Cases"
+      checks:
+        - "Regex-Validierung für Text-Inputs"
+        - "Fallback-Werte bei Parsing-Fehlern"
+        - "Domain-Mismatch-Erkennung mit Entity-ID-Validierung"
+
+    logic_checks:
+      description: "Logische und zeitliche Konsistenz"
+      patterns:
+        - "UTC/Lokalzeit-Konvertierung"
+        - "Sommerzeit-Übergangsbehandlung"
+        - "Case-sensitive Entity-Prüfung"
+        - "Throttle/Delay-Implementierung"
+
+    performance_checks:
+      description: "Laufzeitoptimierung"
+      metrics:
+        - "Komplexitätsanalyse (O(n) vs O(n²))"
+        - "Batch-Verarbeitung bei Massenoperationen"
+        - "Redundanzprüfung von Service Calls"
+
+    documentation:
+      requirements:
+        - "Dokumentation bekannter Einschränkungen"
+        - "Beispielkonfiguration mit Realwerten"
+        - "Versionsabhängige Voraussetzungen"
+
+  error_classification:
+    - type: "Kritischer Fehler"
+      examples: ["Syntaxfehler", "Ungültige Selectors"]
+      priority: "high"
+    - type: "Logikfehler" 
+      examples: ["Zeitstempel-Fehler", "Race Conditions"]
+      priority: "medium"
+    - type: "Warnung"
+      examples: ["Undokumentierte Features", "Performance-Warnungen"]
+      priority: "low"
+
+  test_methods:
+    automated:
+      - "YAML-Linter Integration"
+      - "Unit/Integrationstests mit Testdaten"
+      - "HA Config Check Simulation"
+    manual:
+      - "HA-Neustart-Szenarien"
+      - "Netzwerkausfall-Simulation"
+      - "Grenzwert-Tests für numerische Inputs"
+
+  output_format:
+    status: "pass/warn/error"
+    report_fields:
+      - "Fehlerklassifizierung"
+      - "Zeilennummern"
+      - "Lösungsvorschläge"
+    stats:
+      - "error_count"
+      - "warning_count"
+      - "performance_issues"
