@@ -1,0 +1,142 @@
+blueprint:
+  name: Saisonale Rollladensteuerung (v4.4)
+  description: "Korrigierte Version mit validierter Datumseingabe"
+  domain: automation
+  source_url: https://raw.githubusercontent.com/jard4101/friendly-octo-guide/main/blueprints/automation/seasonal_blinds_control.yaml
+  author: jard4101
+
+  input:
+    group1_covers:
+      name: Rollläden Gruppe 1
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    group2_covers:
+      name: Rollläden Gruppe 2
+      description: "Nur aktiv wenn Deaktivierungsschalter aus"
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    group2_disable_switch:
+      name: Deaktivierungsschalter
+      selector:
+        entity:
+          domain: input_boolean
+    spring_start:
+      name: Frühlingsbeginn (TT-MM)
+      default: "20-03"
+      selector:
+        text: {}
+    summer_start:
+      name: Sommerbeginn (TT-MM)
+      default: "21-06"
+      selector:
+        text: {}
+    autumn_start:
+      name: Herbstbeginn (TT-MM)
+      default: "23-09"
+      selector:
+        text: {}
+    winter_open_time:
+      name: Winter-Öffnungszeit
+      default: "07:00"
+      selector:
+        time: {}
+    spring_open_time:
+      name: Frühling-Öffnungszeit
+      default: "06:30"
+      selector:
+        time: {}
+    summer_open_time:
+      name: Sommer-Öffnungszeit
+      default: "06:00"
+      selector:
+        time: {}
+    enable_logging:
+      name: Logging aktivieren
+      default: false
+      selector:
+        boolean: {}
+
+variables:
+  # Validierte Datumseingaben
+  validated_dates: >-
+    {% macro validate(date_str, default) -%}
+      {% if date_str | regex_match('^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])$') %}
+        {{ date_str }}
+      {% else %}
+        {{ default }}
+      {% endif %}
+    {%- endmacro %}
+    {
+      "spring": "{{ validate(input.spring_start, '20-03') }}",
+      "summer": "{{ validate(input.summer_start, '21-06') }}",
+      "autumn": "{{ validate(input.autumn_start, '23-09') }}"
+    }
+
+  # Aktuelle Jahreszeit
+  current_season: >-
+    {% set now_day = now().day %}
+    {% set now_month = now().month %}
+    {% set spring_parts = validated_dates.spring.split('-') %}
+    {% set summer_parts = validated_dates.summer.split('-') %}
+    {% set autumn_parts = validated_dates.autumn.split('-') %}
+    
+    {% if (now_month > spring_parts[1]|int) or (now_month == spring_parts[1]|int and now_day >= spring_parts[0]|int) %}
+      {% if (now_month < summer_parts[1]|int) or (now_month == summer_parts[1]|int and now_day < summer_parts[0]|int) %}
+        spring
+      {% endif %}
+    {% elif (now_month > summer_parts[1]|int) or (now_month == summer_parts[1]|int and now_day >= summer_parts[0]|int) %}
+      {% if (now_month < autumn_parts[1]|int) or (now_month == autumn_parts[1]|int and now_day < autumn_parts[0]|int) %}
+        summer
+      {% endif %}
+    {% else %}
+      winter
+    {% endif %}
+
+  # Sonnenaufgang mit Fallback
+  sunrise_time: >-
+    {% set rising = state_attr('sun.sun', 'next_rising') %}
+    {% if rising %}
+      {{ as_local(rising).strftime('%H:%M') }}
+    {% else %}
+      07:00
+    {% endif %}
+
+  # Öffnungszeitberechnung
+  target_open_time: >-
+    {% set season_times = {
+      'spring': input.spring_open_time,
+      'summer': input.summer_open_time,
+      'winter': input.winter_open_time
+    } %}
+    {{ [sunrise_time, season_times[current_season]] | max }}
+
+action:
+  - parallel:
+      - choose:
+          - conditions: "{{ input.group1_covers | length > 0 }}"
+            sequence:
+              - service: cover.open_cover
+                target: 
+                  entity_id: "{{ input.group1_covers | reject('in', input.group2_covers) }}"
+        default: []
+      
+      - choose:
+          - conditions: >-
+              {{ input.group2_covers | length > 0 
+              and is_state(input.group2_disable_switch, 'off') 
+              and input.group2_disable_switch not in ['', None] }}
+            sequence:
+              - service: cover.open_cover
+                target: 
+                  entity_id: "{{ input.group2_covers | reject('in', input.group1_covers) }}"
+        default: []
+      
+      - service: system_log.write
+        data:
+          message: "{{ log_info }}"
+          level: info
+        enabled: "{{ input.enable_logging }}"
