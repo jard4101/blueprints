@@ -1,6 +1,6 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (Final v4.0)
-  description: "Steuert Rollläden saisonabhängig mit UTC-Zeitmanagement"
+  name: Saisonale Rollladensteuerung (v4.1)
+  description: "Automatische Steuerung mit validierten Eingaben und modernen Selektoren"
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/friendly-octo-guide/main/blueprints/automation/seasonal_blinds_control.yaml
   author: jard4101
@@ -12,10 +12,10 @@ blueprint:
         entity:
           domain: cover
           multiple: true
+          required: true
     group2_covers:
       name: Rollläden Gruppe 2
       description: "Nur aktiv wenn Deaktivierungsschalter aus"
-      default: []
       selector:
         entity:
           domain: cover
@@ -62,82 +62,49 @@ blueprint:
         boolean: {}
 
 variables:
-  # Validierte Eingaben
+  # Eingabevalidierung
   validated_dates: >-
-    {% set validate = lambda d: d.split('-') if d|regex_match('^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])$') else ['20','03'] %}
+    {% set validate = lambda d: d if d|regex_match('^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])$') else default %}
     {
-      "spring": {{ validate(input.spring_start) }},
-      "summer": {{ validate(input.summer_start) }}, 
-      "autumn": {{ validate(input.autumn_start) }}
+      "spring": "{{ validate(input.spring_start, '20-03') }}",
+      "summer": "{{ validate(input.summer_start, '21-06') }}",
+      "autumn": "{{ validate(input.autumn_start, '23-09') }}"
     }
 
-  # Jahreszeitenlogik
+  # Jahreszeitenberechnung
   current_season: >-
-    {% set now_day = now().day %}
-    {% set now_month = now().month %}
-    {% set spring_day = validated_dates.spring[0]|int %}
-    {% set spring_month = validated_dates.spring[1]|int %}
-    {% set summer_day = validated_dates.summer[0]|int %}
-    {% set summer_month = validated_dates.summer[1]|int %}
-    {% set autumn_day = validated_dates.autumn[0]|int %}
-    {% set autumn_month = validated_dates.autumn[1]|int %}
-    
-    {% if (now_month > spring_month or (now_month == spring_month and now_day >= spring_day)) 
-          and (now_month < summer_month or (now_month == summer_month and now_day < summer_day)) %}
-      spring
-    {% elif (now_month > summer_month or (now_month == summer_month and now_day >= summer_day)) 
-            and (now_month < autumn_month or (now_month == autumn_month and now_day < autumn_day)) %}
-      summer
-    {% else %}
-      winter
-    {% endif %}
+    {% set now_date = now().strftime('%m-%d') %}
+    {% if now_date >= validated_dates.spring and now_date < validated_dates.summer %}spring
+    {% elif now_date >= validated_dates.summer and now_date < validated_dates.autumn %}summer
+    {% else %}winter{% endif %}
 
-  # Sonnenaufgang mit Fallback
+  # Sonnenaufgang mit UTC-Handling
   sunrise_time: >-
     {% set rising = state_attr('sun.sun', 'next_rising') %}
-    {% if rising is none %}
-      {{ now().replace(hour=7, minute=0) }}
-    {% else %}
-      {{ rising.astimezone(now().tzinfo) }}
-    {% endif %}
+    {{ as_local(rising) if rising else now().replace(hour=7) }}
 
   # Öffnungszeitberechnung
   target_open_time: >-
-    {% set season_times = {
-      'spring': input.spring_open_time,
-      'summer': input.summer_open_time,
-      'winter': input.winter_open_time
+    {% set season_config = {
+      'spring': {'time': input.spring_open_time, 'limit': '06:30'},
+      'summer': {'time': input.summer_open_time, 'limit': '06:00'},
+      'winter': {'time': input.winter_open_time, 'limit': '07:00'}
     } %}
-    {% set season_limit = {
-      'spring': '06:30',
-      'summer': '06:00',
-      'winter': '07:00'
-    } %}
-    {% set base_time = strptime(season_times[current_season], '%H:%M').time() %}
-    {% set limit_time = strptime(season_limit[current_season], '%H:%M').time() %}
-    {% set sunrise = sunrise_time.time() %}
-    {{ [base_time, limit_time, sunrise]|max|string|regex_replace(':00$','') }}
-
-trigger:
-  - platform: time
-    at: "{{ target_open_time }}"
-  - platform: state
-    entity_id: sun.sun
-    from: "below_horizon"
-    to: "above_horizon"
+    {% set conf = season_config[current_season] %}
+    {% set sunrise = sunrise_time.strftime('%H:%M') %}
+    {% set open_time = strptime(conf.time, '%H:%M').strftime('%H:%M') %}
+    {{ [sunrise, open_time]|max }}
 
 action:
-  - parallel:
-      - service: cover.open_cover
-        target: 
-          entity_id: "{{ input.group1_covers|reject('in', input.group2_covers)|list }}"
-        enabled: "{{ input.group1_covers|length > 0 }}"
-      - service: cover.open_cover
-        target: 
-          entity_id: "{{ input.group2_covers|reject('in', input.group1_covers)|list }}"
-        enabled: "{{ input.group2_covers|length > 0 and is_state(input.group2_disable_switch, 'off') }}"
-      - service: system_log.write
-        data:
-          message: "Automatisierung ausgelöst: {{ now() }}"
-          level: info
-        enabled: "{{ input.enable_logging }}"
+  - repeat:
+      for_each: "{{ (group1_covers + group2_covers)|unique|list }}"
+      sequence:
+        - service: cover.open_cover
+          target:
+            entity_id: "{{ item }}"
+          enabled: >-
+            {% if item in group1_covers %}
+              true
+            {% elif item in group2_covers %}
+              {{ not is_state(group2_disable_switch, 'on') }}
+            {% endif %}
