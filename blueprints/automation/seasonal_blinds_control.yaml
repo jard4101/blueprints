@@ -1,0 +1,100 @@
+blueprint:
+  name: Saisonale Rollladensteuerung (v2.1)
+  description: "Optimierte Version mit Jahreszeitenlogik und Fehlerresilienz"
+  domain: automation
+  source_url: https://github.com/jard4101/friendly-octo-guide
+  author: jard4101
+  input:
+    group1_covers:
+      name: Rollläden Gruppe 1
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+          required: true
+    group2_covers:
+      name: Rollläden Gruppe 2
+      description: "Nur aktiv wenn Deaktivierungsschalter aus"
+      default: []
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    group2_disable_switch:
+      name: Deaktivierungsschalter
+      selector:
+        entity:
+          domain: input_boolean
+    spring_start:
+      name: Frühlingsbeginn
+      default: "03-20"
+      selector:
+        date:
+          mode: date
+    summer_start:
+      name: Sommerbeginn
+      default: "06-21"
+      selector:
+        date:
+          mode: date
+    autumn_start:
+      name: Herbstbeginn
+      default: "09-23"
+      selector:
+        date:
+          mode: date
+    winter_open_time:
+      name: Winter-Öffnungszeit
+      default: "07:00"
+      selector:
+        time: {}
+
+variables:
+  now_ts: "{{ as_timestamp(now()) }}"
+  season_bounds: >-
+    {% set year = now().year %}
+    {
+      "spring": {{ as_timestamp(strptime(year|string ~ "-" ~ input.spring_start, "%Y-%m-%d")) }},
+      "summer": {{ as_timestamp(strptime(year|string ~ "-" ~ input.summer_start, "%Y-%m-%d")) }},
+      "autumn": {{ as_timestamp(strptime(year|string ~ "-" ~ input.autumn_start, "%Y-%m-%d")) }}
+    }
+  current_season: >-
+    {% if now_ts < season_bounds.spring %}winter
+    {% elif now_ts < season_bounds.summer %}spring
+    {% elif now_ts < season_bounds.autumn %}summer
+    {% else %}winter{% endif %}
+  sunrise_time: >-
+    {% set rising = state_attr('sun.sun', 'next_rising') %}
+    {% if rising is none %}{{ now().replace(hour=7) }}{% else %}{{ rising }}{% endif %}
+  open_time: >-
+    {% if current_season == 'winter' %}
+      {{ [sunrise_time, strptime(input.winter_open_time, "%H:%M")] | max }}
+    {% elif current_season == 'spring' %}
+      {{ [sunrise_time, strptime("06:30", "%H:%M")] | max }}
+    {% else %}
+      {{ [sunrise_time, strptime("06:00", "%H:%M")] | max }}
+    {% endif %}
+
+trigger:
+  - platform: time
+    at: "{{ open_time.strftime('%H:%M:%S') }}"
+  - platform: state
+    entity_id: sun.sun
+    from: "below_horizon"
+    to: "above_horizon"
+
+action:
+  - parallel:
+      - service: cover.open_cover
+        target:
+          entity_id: "{{ input.group1_covers }}"
+        enabled: "{{ input.group1_covers | length > 0 }}"
+      - service: cover.open_cover
+        target:
+          entity_id: "{{ input.group2_covers }}"
+        enabled: >
+          {{ 
+            input.group2_covers | length > 0 
+            and is_state(input.group2_disable_switch, 'off') 
+            and not input.group2_disable_switch in ['', None]
+          }}"
