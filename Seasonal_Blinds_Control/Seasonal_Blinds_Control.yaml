@@ -1,11 +1,12 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v5.0)
+  name: Saisonale Rollladensteuerung (v4.5)
   description: |
     Automatische Steuerung von Rollläden basierend auf Sonnenaufgang und Jahreszeiten.
-    Berücksichtigt Zeitzonen, Sommerzeit und bietet robuste Fehlerbehandlung.
+    Unterstützt zwei Gruppen mit Deaktivierungsschalter und robustem Fehlerhandling.
   domain: automation
-  source_url: https://github.com/jard4101/seasonal_blinds_control
+  source_url: https://raw.githubusercontent.com/jard4101/blueprints/refs/heads/main/Seasonal_Blinds_Control/Seasonal_Blinds_Control.yaml
   author: jard4101
+  last_modified: "2025-04-27"
 
   input:
     group1_covers:
@@ -17,7 +18,6 @@ blueprint:
     group2_covers:
       name: Rollläden Gruppe 2
       description: "Nur aktiv wenn Deaktivierungsschalter aus"
-      default: []
       selector:
         entity:
           domain: cover
@@ -64,112 +64,69 @@ blueprint:
         boolean: {}
 
 variables:
-  # Validierte Datumseingaben
+  # Validierte Datumseingaben (TT-MM)
   validated_dates: >-
-    {% macro validate(date_str, default) %}
-      {% set parts = date_str.split('-') %}
-      {% if parts|count == 2 and parts[0]|int(0) > 0 and parts[0]|int(0) <= 31 
-            and parts[1]|int(0) > 0 and parts[1]|int(0) <= 12 %}
+    {% macro validate(date_str, default) -%}
+      {% if date_str | regex_match('^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])$') 
+         and date_str[0:2]|int <= 31 
+         and date_str[3:5]|int <= 12 %}
         {{ date_str }}
       {% else %}
         {{ default }}
       {% endif %}
-    {% endmacro %}
+    {%- endmacro %}
     {
       "spring": "{{ validate(input.spring_start, '20-03') }}",
       "summer": "{{ validate(input.summer_start, '21-06') }}",
       "autumn": "{{ validate(input.autumn_start, '23-09') }}"
     }
 
-  # Jahreszeitenberechnung mit UTC
+  # Jahreszeitenlogik mit UTC-Handling
   current_season: >-
-    {% set now_utc = utcnow().timestamp() %}
-    {% set year = utcnow().year %}
-    {% set dates = {
-      'spring': strptime(validated_dates.spring ~ '-' ~ year, '%d-%m-%Y').timestamp(),
-      'summer': strptime(validated_dates.summer ~ '-' ~ year, '%d-%m-%Y').timestamp(),
-      'autumn': strptime(validated_dates.autumn ~ '-' ~ year, '%d-%m-%Y').timestamp(),
-      'winter': strptime('21-12-' ~ year, '%d-%m-%Y').timestamp()
-    } %}
-    {% if now_utc < dates.spring %}winter
-    {% elif now_utc < dates.summer %}spring
-    {% elif now_utc < dates.autumn %}summer
-    {% elif now_utc < dates.winter %}autumn
+    {% set now_utc = utcnow() %}
+    {% set spring_date = strptime(validated_dates.spring ~ '-' ~ now_utc.year, '%d-%m-%Y') %}
+    {% set summer_date = strptime(validated_dates.summer ~ '-' ~ now_utc.year, '%d-%m-%Y') %}
+    {% set autumn_date = strptime(validated_dates.autumn ~ '-' ~ now_utc.year, '%d-%m-%Y') %}
+    
+    {% if now_utc >= spring_date and now_utc < summer_date %}spring
+    {% elif now_utc >= summer_date and now_utc < autumn_date %}summer
     {% else %}winter{% endif %}
 
-  # Sonnenaufgang mit Fallback
+  # Sonnenaufgang mit DST-Handling
   sunrise_time: >-
     {% set rising = state_attr('sun.sun', 'next_rising') %}
-    {% if rising is none %}
-      {{ utcnow().replace(hour=5, minute=0) }}
+    {% if rising %}
+      {{ as_local(rising).strftime('%H:%M') }}
     {% else %}
-      {{ as_local(rising) }}
+      07:00
     {% endif %}
 
-  # Öffnungszeitberechnung
+  # Ziel-Öffnungszeit
   target_open_time: >-
-    {% set season_times = {
+    {% set season_config = {
       'spring': input.spring_open_time,
       'summer': input.summer_open_time,
-      'autumn': input.spring_open_time,
       'winter': input.winter_open_time
     } %}
-    {% set conf_time = strptime(season_times[current_season], '%H:%M') %}
-    {% set sunrise = sunrise_time.time() %}
-    {{ [conf_time, sunrise]|max|string|regex_replace(':00$','') }}
-
-  # Duplikatsprüfung (case-sensitive)
-  duplicate_covers: >-
-    {{ group1_covers|intersect(group2_covers)|list }}
-
-trigger:
-  - platform: time
-    at: "{{ target_open_time }}"
-  - platform: state
-    entity_id: sun.sun
-    from: "below_horizon"
-    to: "above_horizon"
-
-condition:
-  - condition: or
-    conditions:
-      - "{{ now().strftime('%H:%M') == target_open_time }}"
-      - "{{ is_state('sun.sun', 'above_horizon') and 
-           (utcnow() - states.sun.sun.last_updated_utc).total_seconds() < 300 }}"
+    {{ [sunrise_time, season_config[current_season]] | max }}
 
 action:
   - parallel:
-      - choose:
-          - conditions: "{{ group1_covers|difference(duplicate_covers)|length > 0 }}"
-            sequence:
-              - service: cover.open_cover
-                target:
-                  entity_id: "{{ group1_covers|difference(duplicate_covers) }}"
-        default: []
-      
-      - choose:
-          - conditions: >-
-              {{ group2_covers|difference(duplicate_covers)|length > 0 
-              and is_state(input.group2_disable_switch, 'off') }}
-            sequence:
-              - service: cover.open_cover
-                target:
-                  entity_id: "{{ group2_covers|difference(duplicate_covers) }}"
-        default: []
-      
-      - service: persistent_notification.create
-        data:
-          title: "Doppelte Rollläden"
-          message: "Konflikte: {{ duplicate_covers|join(', ') }}"
-        enabled: "{{ duplicate_covers|length > 0 }}"
-      
+      - service: cover.open_cover
+        target:
+          entity_id: "{{ input.group1_covers | reject('in', input.group2_covers) }}"
+        enabled: "{{ input.group1_covers | length > 0 }}"
+      - service: cover.open_cover
+        target:
+          entity_id: "{{ input.group2_covers | reject('in', input.group1_covers) }}"
+        enabled: >-
+          {{ 
+            input.group2_covers | length > 0 
+            and is_state(input.group2_disable_switch, 'off')
+            and input.group2_disable_switch not in ['', None]
+          }}
       - service: system_log.write
         data:
-          message: |
-            Rolladensteuerung {{ now() }}:
-            - Jahreszeit: {{ current_season }}
-            - Öffnungszeit: {{ target_open_time }}
-            - Gruppe1: {{ group1_covers|length }}
-            - Gruppe2: {{ group2_covers|length }}
+          message: "{{ log_info }}"
           level: info
         enabled: "{{ input.enable_logging }}"
