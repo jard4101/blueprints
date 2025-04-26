@@ -6,7 +6,6 @@ blueprint:
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/refs/heads/main/Seasonal_Blinds_Control/Seasonal_Blinds_Control.yaml
   author: jard4101
-  last_modified: "2025-04-27"
 
   input:
     group1_covers:
