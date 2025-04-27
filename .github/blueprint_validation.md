@@ -1,6 +1,6 @@
 blueprint_validation:
-    metadata:
-    version: "4.5"
+  metadata:
+    version: "4.6"
     author: "jard4101"
     compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
     required_fields:
@@ -9,14 +9,32 @@ blueprint_validation:
       - domain
       - source_url
       - author
-      - triggers  # ✅ Obligatorisches Feld
-   forbidden_fields:
+      - triggers
+    forbidden_fields:
       - last_modified
       - custom_fields
-      - trigger   # ❌ Verbotener Singular-Key
+      - trigger
 
-    validation_rules:
+  validation_rules:
     syntax_checks:
+      required_fields:
+        global:
+          - name
+          - description
+          - domain
+        triggers:
+          - platform
+        variables:
+          - input
+      key_spelling:
+        mandatory_plurals:
+          - triggers
+          - actions
+          - variables
+        forbidden_singulars:
+          - trigger
+          - action
+          - variable
       allowed_metadata:
         - name
         - description
@@ -25,7 +43,7 @@ blueprint_validation:
         - author
         - input
         - variables
-        - trigger
+        - triggers
         - action
       methods:
         - "YAML-Validierung (Einrückung, Tabs vs. Leerzeichen)"
@@ -50,7 +68,7 @@ blueprint_validation:
 
     logic_checks:
       description: "Logische und zeitliche Konsistenz"
-        patterns:
+      patterns:
         - "UTC/Lokalzeit-Konvertierung"
         - "Sommerzeit-Übergangsbehandlung"
         - "Case-sensitive Entity-Prüfung"
@@ -71,32 +89,38 @@ blueprint_validation:
 
   error_classification:
     - type: "Kritischer Fehler"
-      examples: ["Syntaxfehler", "Ungültige Selectors"]
+      examples: 
+        - "Fehlendes Pflichtfeld: triggers"
+        - "Falscher Singular-Key: trigger"
+        - "Ungültige Plattform: mqtt"
       priority: "high"
-    - type: "Logikfehler" 
-      examples: ["Zeitstempel-Fehler", "Race Conditions"]
+    - type: "Logikfehler"
+      examples: 
+        - "Zeitstempel-Fehler"
+        - "Race Conditions"
       priority: "medium"
     - type: "Warnung"
-      examples: ["Undokumentierte Features", "Performance-Warnungen"]
+      examples: 
+        - "Undokumentierte Features"
+        - "Nicht optimierte Batch-Verarbeitung"
       priority: "low"
 
   test_methods:
     automated:
-      - "YAML-Linter Integration"
-      - "Unit/Integrationstests mit Testdaten"
-      - "HA Config Check Simulation"
+      - "Global Required Fields Check"
+      - "Plural/Singular Key Validation"
+      - "Platform Whitelist Checker"
     manual:
-      - "HA-Neustart-Szenarien"
-      - "Netzwerkausfall-Simulation"
-      - "Grenzwert-Tests für numerische Inputs"
+      - "Visuelle Key-Syntax-Prüfung"
+      - "Kontextabhängige Pluralverwendung"
 
   output_format:
     status: "pass/warn/error"
     report_fields:
-      - "Fehlerklassifizierung"
-      - "Zeilennummern"
-      - "Lösungsvorschläge"
+      - "Fehlende Pflichtfelder"
+      - "Falsche Key-Schreibweise"
+      - "Platform-Vorgaben"
     stats:
-      - "error_count"
-      - "warning_count"
-      - "performance_issues"
+      - "missing_required_fields"
+      - "spelling_errors"
+      - "invalid_platforms"
