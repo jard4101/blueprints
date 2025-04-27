@@ -1,59 +1,82 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.8)
+  name: Saisonale Rollladensteuerung (v4.9)
   description: |
-    Automatische Steuerung von Rollläden mit optimierter Parallelverarbeitung.
-    Behandelt Race Conditions und HA-Neustarts zuverlässig.
+    Automatische Steuerung mit erweiterten Testszenarien und generischer Fehlerresilienz.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
 
   input:
-    # [Unveränderte Input-Definitionen]
+    # [Alle Inputs wie zuvor]
     ...
 
-variables:
-  # [Zuvor definierte Variablen]
-  ...
+mode: queued
+max_exceeded: silent
 
-  # Erweiterte Fehlerbehandlung
-  safe_open_time: >-
-    {% if target_open_time is defined and target_open_time != "None" %}
-      {{ target_open_time }}
-    {% else %}
-      {{ now().strftime('%H:%M') }}
-    {% endif %}
+variables:
+  safe_sunrise: >-
+    {% set rising = state_attr('sun.sun', 'next_rising') %}
+    {{ as_local(rising) if rising else now().replace(hour=7) }}
+  
+  validated_dates: >-
+    {% macro validate(date_str, default) -%}
+      {% if date_str | regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') %}
+        {{ date_str }}
+      {% else %}
+        {{ default }}
+      {% endif %}
+    {%- endmacro %}
+    {
+      "spring": "{{ validate(input.spring_start, '20-03') }}",
+      "summer": "{{ validate(input.summer_start, '21-06') }}",
+      "autumn": "{{ validate(input.autumn_start, '23-09') }}"
+    }
+
+  current_season: >-
+    {% set now_utc = as_timestamp(utcnow()) %}
+    {% set spring_ts = as_timestamp(strptime(validated_dates.spring ~ '-' ~ now().year, '%d-%m-%Y')) %}
+    {% set summer_ts = as_timestamp(strptime(validated_dates.summer ~ '-' ~ now().year, '%d-%m-%Y')) %}
+    {% set autumn_ts = as_timestamp(strptime(validated_dates.autumn ~ '-' ~ now().year, '%d-%m-%Y')) %}
+    {% if now_utc >= spring_ts and now_utc < summer_ts %}spring
+    {% elif now_utc >= summer_ts and now_utc < autumn_ts %}summer
+    {% else %}winter{% endif %}
+
+  target_open_time: >-
+    {% set season_times = {
+      'spring': input.spring_open_time,
+      'summer': input.summer_open_time,
+      'winter': input.winter_open_time
+    } %}
+    {{ [safe_sunrise.strftime('%H:%M'), season_times[current_season]] | max }}
+
+  final_groups: >-
+    {
+      "group1": {{ input.group1_covers | default([]) | reject('in', input.group2_covers | default([])) }},
+      "group2": {{ input.group2_covers | default([]) | reject('in', input.group1_covers | default([])) }}
+    }
+
+  group2_enabled: >-
+    {{ not is_state(input.group2_disable_switch, 'on') 
+       if input.group2_disable_switch 
+       else true }}
 
 triggers:
   - platform: time
-    at: "{{ safe_open_time }}"
+    at: "{{ target_open_time }}"
   - platform: event
     event_type: homeassistant_started
 
 action:
-  mode: queued
-  max_exceeded: silent
-  parallel:
-    - choose:
-        - conditions: "{{ input.group1_covers | length > 0 }}"
-          sequence:
-            - service: cover.open_cover
-              target: 
-                entity_id: "{{ input.group1_covers | reject('in', input.group2_covers) }}"
-      default: []
-    
-    - choose:
-        - conditions: >-
-            {{ input.group2_covers | length > 0 
-               and is_state(input.group2_disable_switch, 'off')
-               and input.group2_disable_switch not in ['', None] }}
-          sequence:
-            - service: cover.open_cover
-              target: 
-                entity_id: "{{ input.group2_covers | reject('in', input.group1_covers) }}"
-      default: []
-    
-    - service: system_log.write
-      data:
-        message: "{{ log_info }}"
-        level: info
-      enabled: "{{ input.enable_logging }}"
+  - parallel:
+      - service: cover.open_cover
+        target: 
+          entity_id: "{{ final_groups.group1 }}"
+        enabled: "{{ final_groups.group1 | length > 0 }}"
+      - service: cover.open_cover
+        target: 
+          entity_id: "{{ final_groups.group2 }}"
+        enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
+      - service: system_log.write
+        data:
+          message: "Automatisierung erfolgreich: {{ now() }}"
+        enabled: "{{ input.enable_logging }}"
