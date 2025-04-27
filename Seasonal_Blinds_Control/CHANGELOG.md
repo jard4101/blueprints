@@ -1,5 +1,13 @@
 # Changelog
 
+## [v4.11] - 2025-04-27
+### Fixed
+- Fehler bei manuellem Auslösen behoben: Sicherer Umgang mit `trigger`-Variable
+- Blueprint läuft jetzt auch ohne echten Trigger-Kontext stabil
+- Logging und Benachrichtigung für manuelle Auslösung integriert
+
+---
+
 ## [v4.10] - 2025-04-27
 ### Added
 - Dedizierter Event-Trigger (`manual_trigger`) für manuelle Steuerung
