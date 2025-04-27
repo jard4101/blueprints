@@ -1,6 +1,6 @@
 blueprint_validation:
   metadata:
-    version: "4.9"
+    version: "4.10"
     author: "jard4101"
     compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
     required_fields:
@@ -85,6 +85,9 @@ blueprint_validation:
       mode_config:
         - "mode: queued/parallel für Zeit-basierte Automatisierungen"
         - "max_exceeded: silent/error"
+      trigger_context:
+        - "Jeder Zugriff auf trigger.* muss mit 'trigger is defined' abgesichert werden"
+        - "Manuelle Auslösung muss ohne trigger-Kontext funktionieren"
       patterns:
         - "UTC/Lokalzeit-Konvertierung"
         - "Sommerzeit-Übergangsbehandlung"
@@ -109,6 +112,8 @@ blueprint_validation:
         - "Nicht-UTC-Zeitstempel in saisonaler Berechnung"
         - "Fehlender Fallback-Event für manuelle Steuerung"
         - "Ungültiger max-Wert für parallelen Modus"
+        - "trigger.* Zugriff ohne 'trigger is defined'"
+        - "Manuelle Auslösung schlägt fehl wegen trigger-Abhängigkeit"
       priority: "high"
     - type: "Logikfehler"
       examples: 
@@ -130,6 +135,8 @@ blueprint_validation:
       - "Parallelitäts- und max-Wert-Prüfung"
       - "Case-sensitive Entity-ID-Validierung"
       - "Domain-Filter-Test"
+      - "trigger.* Zugriff auf 'trigger is defined' prüfen"
+      - "Simulation manueller Auslösung ohne trigger-Kontext"
     manual:
       - "HA-Neustart-Simulation"
       - "DST-Übergangstests (März/Oktober)"
@@ -144,9 +151,11 @@ blueprint_validation:
       - "Zeitformat-Inkonsistenzen"
       - "Fehler bei paralleler Ausführung"
       - "Case-Sensitivity-Probleme"
+      - "trigger-Kontext-Fehler"
     stats:
       - "critical_count"
       - "domain_errors"
       - "time_validation_issues"
       - "parallel_execution_issues"
       - "entity_case_issues"
+      - "trigger_context_issues"
