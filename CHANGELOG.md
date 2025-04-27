@@ -1,5 +1,17 @@
 # Changelog
 
+## [v4.8] - 2025-04-27
+### Fixed
+- Automatisierungsabbruch durch `mode: queued` und `max_exceeded: silent` behoben
+- Fallback für leere Rollladen-Gruppen hinzugefügt
+- Fehlermeldung bei Neustarts durch `safe_sunrise`-Variable eliminiert
+
+### Changed
+- Parallele Ausführung optimiert
+- Dokumentation um Modus-Hinweise erweitert
+
+---
+
 ## [v4.7] - 2025-04-27
 ### Fixed
 - Automatisierter Test für Sommerzeit-Übergang (26.10.2025) integriert
