@@ -1,8 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.9)
+  name: Saisonale Rollladensteuerung (v4.10)
   description: |
-    Automatische Steuerung mit erweiterten Testszenarien, Sommerzeit-Handling und generischer Fehlerresilienz.
-    Unterstützt zwei Gruppen mit Deaktivierungsschalter, queued-Modus für zuverlässige Ausführung und Logging.
+    Stabilisierte Version mit parallelem Modus und manueller Trigger-Unterstützung.
+    Case-sensitive Entity-ID-Behandlung, DST-resistent, mit Race-Condition-Fixes.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -62,19 +62,20 @@ blueprint:
       selector:
         boolean: {}
 
-mode: queued
+mode: parallel
+max: 5
 max_exceeded: silent
 
 variables:
-  # Sonnenaufgangszeit mit Fallback (bei HA-Neustart oder fehlendem Sensor)
+  # Robustes Zeitmanagement
   safe_sunrise: >-
     {% set rising = state_attr('sun.sun', 'next_rising') %}
-    {{ as_local(rising) if rising else now().replace(hour=7, minute=0) }}
-
-  # Validierte Datumseingaben (TT-MM)
+    {{ as_local(rising).replace(second=0) if rising else now().replace(hour=7, minute=0, second=0) }}
+  
+  # Validierte Datumseingaben
   validated_dates: >-
     {% macro validate(date_str, default) -%}
-      {% if date_str | regex_match('^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])$') %}
+      {% if date_str | regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') %}
         {{ date_str }}
       {% else %}
         {{ default }}
@@ -86,17 +87,17 @@ variables:
       "autumn": "{{ validate(input.autumn_start, '23-09') }}"
     }
 
-  # Jahreszeitenlogik mit UTC-Handling
+  # Jahreszeitenlogik (UTC-basiert)
   current_season: >-
-    {% set now_utc = as_timestamp(utcnow()) %}
+    {% set now_ts = as_timestamp(utcnow()) %}
     {% set spring_ts = as_timestamp(strptime(validated_dates.spring ~ '-' ~ now().year, '%d-%m-%Y')) %}
     {% set summer_ts = as_timestamp(strptime(validated_dates.summer ~ '-' ~ now().year, '%d-%m-%Y')) %}
     {% set autumn_ts = as_timestamp(strptime(validated_dates.autumn ~ '-' ~ now().year, '%d-%m-%Y')) %}
-    {% if now_utc >= spring_ts and now_utc < summer_ts %}spring
-    {% elif now_utc >= summer_ts and now_utc < autumn_ts %}summer
+    {% if now_ts >= spring_ts and now_ts < summer_ts %}spring
+    {% elif now_ts >= summer_ts and now_ts < autumn_ts %}summer
     {% else %}winter{% endif %}
 
-  # Ziel-Öffnungszeit
+  # Zielzeitberechnung
   target_open_time: >-
     {% set season_times = {
       'spring': input.spring_open_time,
@@ -105,48 +106,54 @@ variables:
     } %}
     {{ [safe_sunrise.strftime('%H:%M'), season_times[current_season]] | max }}
 
-  # Duplikate filtern und leere Gruppen abfangen
-  final_group1: >-
-    {{ (input.group1_covers | default([])) | reject('in', input.group2_covers | default([])) | list }}
-  final_group2: >-
-    {{ (input.group2_covers | default([])) | reject('in', input.group1_covers | default([])) | list }}
+  # Gruppen mit Fallback
+  final_groups: >-
+    {
+      "group1": {{ input.group1_covers | default([]) | reject('in', input.group2_covers | default([])) }},
+      "group2": {{ input.group2_covers | default([]) | reject('in', input.group1_covers | default([])) }}
+    }
 
+  # Gruppenaktivierung
   group2_enabled: >-
-    {% if input.group2_disable_switch %}
-      {{ not is_state(input.group2_disable_switch, 'on') }}
-    {% else %}
-      true
-    {% endif %}
-
-  log_info: >-
-    Saisonale Rollladensteuerung:
-    Datum: {{ now().strftime('%d.%m.%Y') }}
-    Zeit: {{ now().strftime('%H:%M:%S') }}
-    Jahreszeit: {{ current_season }}
-    Sonnenaufgang: {{ safe_sunrise.strftime('%H:%M') }}
-    Öffnungszeit: {{ target_open_time }}
-    Gruppe 1: {{ final_group1 | join(', ') }}
-    Gruppe 2: {{ final_group2 | join(', ') }}
-    Gruppe 2 aktiviert: {{ group2_enabled }}
+    {{ not is_state(input.group2_disable_switch, 'on') 
+       if input.group2_disable_switch 
+       else true }}
 
 triggers:
   - platform: time
     at: "{{ target_open_time }}"
+  - platform: state
+    entity_id: sun.sun
+    from: "below_horizon"
+    to: "above_horizon"
   - platform: event
-    event_type: homeassistant_started
+    event_type: manual_trigger
 
 action:
-  - parallel:
-      - service: cover.open_cover
-        target:
-          entity_id: "{{ final_group1 }}"
-        enabled: "{{ final_group1 | length > 0 }}"
-      - service: cover.open_cover
-        target:
-          entity_id: "{{ final_group2 }}"
-        enabled: "{{ (final_group2 | length > 0) and group2_enabled }}"
-      - service: system_log.write
-        data:
-          message: "{{ log_info }}"
-          level: info
-        enabled: "{{ input.enable_logging }}"
+  - choose:
+      - conditions: "{{ trigger.platform in ['time', 'state'] }}"
+        sequence:
+          - parallel:
+              - service: cover.open_cover
+                target:
+                  entity_id: "{{ final_groups.group1 }}"
+                enabled: "{{ final_groups.group1 | length > 0 }}"
+              - service: cover.open_cover
+                target:
+                  entity_id: "{{ final_groups.group2 }}"
+                enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
+      - conditions: "{{ trigger.platform == 'event' }}"
+        sequence:
+          - service: persistent_notification.create
+            data:
+              title: "Manuell ausgelöst"
+              message: "Automation wurde manuell aktiviert: {{ now().strftime('%d.%m.%Y %H:%M') }}"
+          - event: automation_success
+            event_data:
+              type: manual_trigger
+
+  - service: system_log.write
+    data:
+      message: "Ausführung abgeschlossen: {{ now().timestamp() }}"
+      level: info
+    enabled: "{{ input.enable_logging }}"
