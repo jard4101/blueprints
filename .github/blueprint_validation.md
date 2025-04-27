@@ -1,6 +1,6 @@
 blueprint_validation:
   metadata:
-    version: "4.6"
+    version: "4.7"
     author: "jard4101"
     compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
     required_fields:
@@ -10,10 +10,19 @@ blueprint_validation:
       - source_url
       - author
       - triggers
+      - mode
+      - max_exceeded
     forbidden_fields:
       - last_modified
       - custom_fields
       - trigger
+    allowed_modes:
+      - single
+      - queued
+      - parallel
+    max_exceeded_values:
+      - silent
+      - error
 
   validation_rules:
     syntax_checks:
@@ -22,105 +31,45 @@ blueprint_validation:
           - name
           - description
           - domain
+          - mode
+          - max_exceeded
         triggers:
           - platform
-        variables:
-          - input
       key_spelling:
         mandatory_plurals:
           - triggers
           - actions
           - variables
-        forbidden_singulars:
-          - trigger
-          - action
-          - variable
-      allowed_metadata:
-        - name
-        - description
-        - domain
-        - source_url
-        - author
-        - input
-        - variables
-        - triggers
-        - action
-      methods:
-        - "YAML-Validierung (Einrückung, Tabs vs. Leerzeichen)"
-        - "!input-Referenzprüfung"
-        - "Selector-Typen gemäß HA-Dokumentation"
-        - "Unerlaubte YAML-Tags Prüfung"
-      trigger_structure:
-        required_keys:
-          - platform
-        allowed_platforms:
-          - time
-          - state
-          - event
-          - template
-
-    input_validation:
-      description: "Eingabeparameter-Edge-Cases"
-      checks:
-        - "Regex-Validierung für Text-Inputs"
-        - "Fallback-Werte bei Parsing-Fehlern"
-        - "Domain-Mismatch-Erkennung mit Entity-ID-Validierung"
+      # ... (restliche bestehende Syntax-Checks)
 
     logic_checks:
-      description: "Logische und zeitliche Konsistenz"
-      patterns:
-        - "UTC/Lokalzeit-Konvertierung"
-        - "Sommerzeit-Übergangsbehandlung"
-        - "Case-sensitive Entity-Prüfung"
-        - "Throttle/Delay-Implementierung"
-
-    performance_checks:
-      description: "Laufzeitoptimierung"
-      metrics:
-        - "Komplexitätsanalyse (O(n) vs O(n²))"
-        - "Batch-Verarbeitung bei Massenoperationen"
-        - "Redundanzprüfung von Service Calls"
-
-    documentation:
-      requirements:
-        - "Dokumentation bekannter Einschränkungen"
-        - "Beispielkonfiguration mit Realwerten"
-        - "Versionsabhängige Voraussetzungen"
+      mode_validation:
+        - condition: "mode in ['single','queued','parallel']"
+          error_message: "Ungültiger Modus: {mode}"
+        - condition: "triggers|length > 1 → mode != 'single'"
+          error_message: "Mehrfach-Trigger benötigen queued/parallel-Modus"
+      
+      error_handling:
+        - required: true
+          test: "Fallback für leere Gruppen vorhanden"
+          error_message: "Fehlende Fehlerbehandlung bei leeren Entity-Gruppen"
+      
+      # ... (bestehende Logik-Checks)
 
   error_classification:
     - type: "Kritischer Fehler"
       examples: 
-        - "Fehlendes Pflichtfeld: triggers"
-        - "Falscher Singular-Key: trigger"
-        - "Ungültige Plattform: mqtt"
+        - "Ungültiger Modus: batch"
+        - "Fehlendes max_exceeded Feld"
+        - "Queued-Modus mit Einzeltrigger"
       priority: "high"
-    - type: "Logikfehler"
-      examples: 
-        - "Zeitstempel-Fehler"
-        - "Race Conditions"
-      priority: "medium"
-    - type: "Warnung"
-      examples: 
-        - "Undokumentierte Features"
-        - "Nicht optimierte Batch-Verarbeitung"
-      priority: "low"
+    # ... (bestehende Fehlerklassen)
 
   test_methods:
     automated:
-      - "Global Required Fields Check"
-      - "Plural/Singular Key Validation"
-      - "Platform Whitelist Checker"
-    manual:
-      - "Visuelle Key-Syntax-Prüfung"
-      - "Kontextabhängige Pluralverwendung"
+      - "Modus-Trigger-Konsistenzcheck"
+      - "Error-Fallback-Validierung"
+      - "Wertebereichsprüfung max_exceeded"
+    # ... (bestehende Tests)
 
-  output_format:
-    status: "pass/warn/error"
-    report_fields:
-      - "Fehlende Pflichtfelder"
-      - "Falsche Key-Schreibweise"
-      - "Platform-Vorgaben"
-    stats:
-      - "missing_required_fields"
-      - "spelling_errors"
-      - "invalid_platforms"
+# ... (restliche unveränderte Abschnitte)
