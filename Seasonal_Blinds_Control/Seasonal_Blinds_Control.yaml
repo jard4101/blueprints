@@ -1,8 +1,9 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.13)
+  name: Saisonale Rollladensteuerung (v4.14)
   description: |
-    Automatische Steuerung von Rollläden basierend auf Sonnenaufgang und Jahreszeiten.
-    Unterstützt zwei Gruppen, Deaktivierungsschalter, Logging und festen Test-Button (input_button.test) für zuverlässige manuelle Tests.
+    Robuste, dynamische Steuerung von Rollläden nach Sonnenaufgang, Saison und Test.
+    Keine dynamischen Zeit-Trigger, sondern Zeitmuster-Trigger mit Zielzeit-Prüfung.
+    Unterstützt manuelles Auslösen und Logging.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -108,28 +109,42 @@ variables:
        if input.group2_disable_switch 
        else true }}
 
-triggers:
-  - platform: time
-    at: "{{ target_open_time }}"
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
   - platform: state
     entity_id: sun.sun
     from: "below_horizon"
     to: "above_horizon"
-  - platform: state
-    entity_id: input_button.test
+  - platform: event
+    event_type: manual_trigger
 
 action:
-  - parallel:
-      - service: cover.open_cover
-        target:
-          entity_id: "{{ final_groups.group1 }}"
-        enabled: "{{ final_groups.group1 | length > 0 }}"
-      - service: cover.open_cover
-        target:
-          entity_id: "{{ final_groups.group2 }}"
-        enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
-      - service: system_log.write
-        data:
-          message: "Automation ausgelöst: {{ now().strftime('%d.%m.%Y %H:%M:%S') }}"
-          level: info
-        enabled: "{{ input.enable_logging }}"
+  - choose:
+      - conditions: >
+          {{ now().strftime('%H:%M') == target_open_time }}
+        sequence:
+          - parallel:
+              - service: cover.open_cover
+                target:
+                  entity_id: "{{ final_groups.group1 }}"
+                enabled: "{{ final_groups.group1 | length > 0 }}"
+              - service: cover.open_cover
+                target:
+                  entity_id: "{{ final_groups.group2 }}"
+                enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
+      - conditions: "{{ trigger is not defined or (trigger.platform is defined and trigger.platform == 'event') }}"
+        sequence:
+          - service: persistent_notification.create
+            data:
+              title: "Manuell ausgelöst"
+              message: "Automation wurde manuell aktiviert: {{ now().strftime('%d.%m.%Y %H:%M') }}"
+          - service: system_log.write
+            data:
+              message: "Manueller Trigger erfolgreich: {{ now().timestamp() }}"
+              level: info
+  - service: system_log.write
+    data:
+      message: "Ausführung abgeschlossen: {{ now().timestamp() }}"
+      level: info
+    enabled: "{{ input.enable_logging }}"
