@@ -1,7 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.11)
+  name: Saisonale Rollladensteuerung (v4.12)
   description: |
     Fehlerresistente Version: Funktioniert bei allen Triggerarten, auch beim manuellen Auslösen.
+    Alle Zugriffe auf trigger sind abgesichert. Case-sensitive Entity-ID-Behandlung, DST-resistent.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
