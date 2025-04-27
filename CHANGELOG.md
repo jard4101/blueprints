@@ -1,5 +1,17 @@
 # Changelog
 
+## [v4.9] - 2025-04-27
+### Added
+- Generische HA-Neustart-Resilienz mit `homeassistant_started`-Event
+- UTC-basierte Zeitstempel für Jahreszeitenberechnung
+- Dokumentierte Validierungsregeln für alle Blueprints
+
+### Fixed
+- Sonnenaufgangs-Fallback bei verzögertem sun.sun-Update
+- Strengere Regex für TT-MM-Validierung (^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])$)
+
+---
+
 ## [v4.8] - 2025-04-27
 ### Fixed
 - Automatisierungsabbruch durch `mode: queued` und `max_exceeded: silent` behoben
