@@ -1,8 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.12)
+  name: Saisonale Rollladensteuerung (v4.13)
   description: |
-    Fehlerresistente Version mit Helper-Test-Trigger.
-    Unterstützt manuelle Tests über input_button. Keine Trigger-Abhängigkeit in Variablen.
+    Automatische Steuerung von Rollläden basierend auf Sonnenaufgang und Jahreszeiten.
+    Unterstützt zwei Gruppen, Deaktivierungsschalter, Logging und festen Test-Button (input_button.test) für zuverlässige manuelle Tests.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -61,12 +61,6 @@ blueprint:
       default: false
       selector:
         boolean: {}
-    test_helper:
-      name: Test-Trigger Button (input_button)
-      description: "Wähle einen input_button für Testzwecke"
-      selector:
-        entity:
-          domain: input_button
 
 mode: parallel
 max: 5
@@ -122,7 +116,7 @@ triggers:
     from: "below_horizon"
     to: "above_horizon"
   - platform: state
-    entity_id: !input test_helper
+    entity_id: input_button.test
 
 action:
   - parallel:
