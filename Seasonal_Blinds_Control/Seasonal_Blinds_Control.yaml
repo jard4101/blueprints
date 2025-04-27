@@ -1,10 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.5)
-  description: |
-    Automatische Steuerung von Rollläden basierend auf Sonnenaufgang und Jahreszeiten.
-    Unterstützt zwei Gruppen mit Deaktivierungsschalter und robustem Fehlerhandling.
+  name: Saisonale Rollladensteuerung (v4.6)
+  description: "Korrigierte Version mit validierten Triggern"
   domain: automation
-  source_url: https://raw.githubusercontent.com/jard4101/blueprints/refs/heads/main/Seasonal_Blinds_Control/Seasonal_Blinds_Control.yaml
+  source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
 
   input:
@@ -108,6 +106,14 @@ variables:
       'winter': input.winter_open_time
     } %}
     {{ [sunrise_time, season_config[current_season]] | max }}
+
+triggers:  # ✅ Korrekter Key-Name (plural)
+  - platform: time
+    at: "{{ target_open_time }}"
+  - platform: state
+    entity_id: sun.sun
+    from: "below_horizon"
+    to: "above_horizon"
 
 action:
   - parallel:
