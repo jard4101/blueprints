@@ -1,8 +1,8 @@
 blueprint:
   name: Saisonale Rollladensteuerung (v4.12)
   description: |
-    Fehlerresistente Version: Funktioniert bei allen Triggerarten, auch beim manuellen Auslösen.
-    Alle Zugriffe auf trigger sind abgesichert. Case-sensitive Entity-ID-Behandlung, DST-resistent.
+    Fehlerresistente Version mit Helper-Test-Trigger.
+    Unterstützt manuelle Tests über input_button. Keine Trigger-Abhängigkeit in Variablen.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -61,6 +61,12 @@ blueprint:
       default: false
       selector:
         boolean: {}
+    test_helper:
+      name: Test-Trigger Button (input_button)
+      description: "Wähle einen input_button für Testzwecke"
+      selector:
+        entity:
+          domain: input_button
 
 mode: parallel
 max: 5
@@ -115,36 +121,22 @@ triggers:
     entity_id: sun.sun
     from: "below_horizon"
     to: "above_horizon"
-  - platform: event
-    event_type: manual_trigger
+  - platform: state
+    entity_id: !input test_helper
+    to: "pressed"
 
 action:
-  - choose:
-      - conditions: >
-          {{ trigger is defined and trigger.platform in ['time', 'state'] }}
-        sequence:
-          - parallel:
-              - service: cover.open_cover
-                target:
-                  entity_id: "{{ final_groups.group1 }}"
-                enabled: "{{ final_groups.group1 | length > 0 }}"
-              - service: cover.open_cover
-                target:
-                  entity_id: "{{ final_groups.group2 }}"
-                enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
-      - conditions: >
-          {{ trigger is not defined or (trigger.platform is defined and trigger.platform == 'event') }}
-        sequence:
-          - service: persistent_notification.create
-            data:
-              title: "Manuell ausgelöst"
-              message: "Automation wurde manuell aktiviert: {{ now().strftime('%d.%m.%Y %H:%M') }}"
-          - service: system_log.write
-            data:
-              message: "Manueller Trigger erfolgreich: {{ now().timestamp() }}"
-              level: info
-  - service: system_log.write
-    data:
-      message: "Ausführung abgeschlossen: {{ now().timestamp() }}"
-      level: info
-    enabled: "{{ input.enable_logging }}"
+  - parallel:
+      - service: cover.open_cover
+        target:
+          entity_id: "{{ final_groups.group1 }}"
+        enabled: "{{ final_groups.group1 | length > 0 }}"
+      - service: cover.open_cover
+        target:
+          entity_id: "{{ final_groups.group2 }}"
+        enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
+      - service: system_log.write
+        data:
+          message: "Automation ausgelöst: {{ now().strftime('%d.%m.%Y %H:%M:%S') }}"
+          level: info
+        enabled: "{{ input.enable_logging }}"
