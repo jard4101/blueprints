@@ -1,13 +1,30 @@
 blueprint_validation:
   metadata:
-    version: "3.0"
-    author: "Home Assistant Community"
-    last_modified: "2025-04-27"
-    compatibility: "Home Assistant 2025.4+ (4 letzte Versionen)"
-  
+    version: "4.5"
+    author: "jard4101"
+    compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
+    required_fields:
+      - name
+      - description
+      - domain
+      - source_url
+      - author
+    forbidden_fields:
+      - last_modified
+      - custom_fields
+
   validation_rules:
     syntax_checks:
-      description: "YAML-Struktur und Blueprint-Metadaten"
+      allowed_metadata:
+        - name
+        - description
+        - domain
+        - source_url
+        - author
+        - input
+        - variables
+        - trigger
+        - action
       methods:
         - "YAML-Validierung (Einrückung, Tabs vs. Leerzeichen)"
         - "!input-Referenzprüfung"
