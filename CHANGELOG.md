@@ -1,5 +1,15 @@
 # Changelog
 
+## [v4.7] - 2025-04-27
+### Fixed
+- Automatisierter Test für Sommerzeit-Übergang (26.10.2025) integriert
+- Entity-IDs werden explizit case-sensitive verarbeitet und dokumentiert
+
+### Changed
+- Blueprint-Dokumentation um Hinweise zu DST-Handling und Entity-IDs ergänzt
+
+---
+
 ## [v4.6] - 2025-04-27
 ### Fixed
 - Blueprint verwendet jetzt den korrekten Key `triggers` (Plural) statt `trigger` (Singular)
@@ -22,6 +32,8 @@
 ### Changed
 - Parallele Service-Ausführung für Gruppenabfragen
 - Changelog und Dokumentation auf aktuellen Stand gebracht
+
+---
 
 ## [v4.4] - 2025-04-26
 ### Fixed
