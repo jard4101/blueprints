@@ -1,6 +1,6 @@
 blueprint_validation:
   metadata:
-    version: "4.8"
+    version: "4.9"
     author: "jard4101"
     compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
     required_fields:
@@ -73,16 +73,21 @@ blueprint_validation:
         - "Domain-Mismatch-Erkennung mit Entity-ID-Validierung"
 
     logic_checks:
+      parallel_execution:
+        - "mode: parallel für Automatisierungen mit manuellen Triggern"
+        - "max: 5-10 für Lastverteilung bei parallelem Modus"
       trigger_resilience:
-        - "Fallback für sun.sun-Abhängigkeiten"
-        - "UTC-Zeitstempel für Jahresberechnungen"
+        - "UTC-basierte Zeitstempel für saisonale Berechnungen"
+        - "Fallback-Event für manuelle Steuerung"
+      entity_handling:
+        - "Case-sensitive Entity-ID-Prüfung"
+        - "Domain-Filterung (z.B. cover.*)"
       mode_config:
         - "mode: queued/parallel für Zeit-basierte Automatisierungen"
         - "max_exceeded: silent/error"
       patterns:
         - "UTC/Lokalzeit-Konvertierung"
         - "Sommerzeit-Übergangsbehandlung"
-        - "Case-sensitive Entity-Prüfung"
         - "Throttle/Delay-Implementierung"
 
     performance_checks:
@@ -101,14 +106,15 @@ blueprint_validation:
   error_classification:
     - type: "Kritischer Fehler"
       examples: 
-        - "Nicht-UTC-Zeitstempel in Jahresberechnungen"
-        - "Fehlendes sun.sun-Fallback"
-        - "Ungültiges TT-MM-Format"
+        - "Nicht-UTC-Zeitstempel in saisonaler Berechnung"
+        - "Fehlender Fallback-Event für manuelle Steuerung"
+        - "Ungültiger max-Wert für parallelen Modus"
       priority: "high"
     - type: "Logikfehler"
       examples: 
-        - "Falsche Moduswahl für Zeitautomation"
-        - "Cover-Domain-Mismatch"
+        - "Falsche Moduswahl für manuelle Trigger"
+        - "Case-insensitive Entity-ID"
+        - "Domain-Mismatch bei Entity-Referenz"
       priority: "medium"
     - type: "Warnung"
       examples: 
@@ -121,6 +127,9 @@ blueprint_validation:
       - "Modus-Trigger-Konsistenzcheck"
       - "TT-MM-Formatvalidierung"
       - "UTC-Zeitstempel-Prüfung"
+      - "Parallelitäts- und max-Wert-Prüfung"
+      - "Case-sensitive Entity-ID-Validierung"
+      - "Domain-Filter-Test"
     manual:
       - "HA-Neustart-Simulation"
       - "DST-Übergangstests (März/Oktober)"
@@ -133,7 +142,11 @@ blueprint_validation:
       - "Fehlende Resilienzmechanismen"
       - "Domain-Spezifikationsfehler"
       - "Zeitformat-Inkonsistenzen"
+      - "Fehler bei paralleler Ausführung"
+      - "Case-Sensitivity-Probleme"
     stats:
       - "critical_count"
       - "domain_errors"
       - "time_validation_issues"
+      - "parallel_execution_issues"
+      - "entity_case_issues"
