@@ -1,5 +1,22 @@
 # Changelog
 
+## [v4.10] - 2025-04-27
+### Added
+- Dedizierter Event-Trigger (`manual_trigger`) für manuelle Steuerung
+- Zustandsübergangs-Logging mit Zeitstempel
+- Automatisierter Success-Event (`automation_success`)
+
+### Fixed
+- 100% reproduzierbarer Fehler bei manueller Auslösung behoben
+- Zeitstempel-Genauigkeit auf Sekundenebene
+- Parallele Ausführungseinschränkung (max:5)
+
+### Changed
+- Vereinheitlichte Variablenbenennung
+- Dokumentation um Trigger-Hinweise erweitert
+
+---
+
 ## [v4.9] - 2025-04-27
 ### Added
 - Generische HA-Neustart-Resilienz mit `homeassistant_started`-Event
