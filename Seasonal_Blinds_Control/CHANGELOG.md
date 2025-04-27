@@ -1,5 +1,15 @@
 # Changelog
 
+## [v4.12] - 2025-04-27
+### Added
+- Helper-Trigger (input_button) für sicheres manuelles Testen
+- Kein Trigger-Kontext mehr notwendig, alle Variablen trigger-unabhängig
+
+### Fixed
+- Fehler beim manuellen Ausführen über das UI endgültig behoben
+
+---
+
 ## [v4.11] - 2025-04-27
 ### Fixed
 - Fehler bei manuellem Auslösen behoben: Sicherer Umgang mit `trigger`-Variable
