@@ -1,5 +1,28 @@
 # Changelog
 
+## [v4.6] - 2025-04-27
+### Fixed
+- Blueprint verwendet jetzt den korrekten Key `triggers` (Plural) statt `trigger` (Singular)
+- Import-Fehler "required key not provided @ data['triggers']" behoben
+- Validierungsregeln und Blueprint-Dokumentation an neue Home Assistant-Anforderungen angepasst
+
+### Changed
+- Trigger-Abschnitt vollständig auf Plural umgestellt
+- Veraltete oder nicht unterstützte Felder entfernt
+
+---
+
+## [v4.5] - 2025-04-27
+### Fixed
+- Blueprint-Metadaten: `last_modified` entfernt, da nicht HA-konform
+- source_url aktualisiert auf neue GitHub-RAW-URL
+- Validierungsregeln angepasst: Nur noch erlaubte Felder in der Blueprint-Metasektion
+- UTC-basierte Zeitberechnung und robuste Datumsvalidierung per Makro
+
+### Changed
+- Parallele Service-Ausführung für Gruppenabfragen
+- Changelog und Dokumentation auf aktuellen Stand gebracht
+
 ## [v4.4] - 2025-04-26
 ### Fixed
 - Jinja2-Syntaxfehler in der Datumsvalidierung behoben (Makro statt Lambda)
