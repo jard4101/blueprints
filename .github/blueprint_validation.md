@@ -1,5 +1,5 @@
 blueprint_validation:
-  metadata:
+    metadata:
     version: "4.5"
     author: "jard4101"
     compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
@@ -9,11 +9,13 @@ blueprint_validation:
       - domain
       - source_url
       - author
-    forbidden_fields:
+      - triggers  # ✅ Obligatorisches Feld
+   forbidden_fields:
       - last_modified
       - custom_fields
+      - trigger   # ❌ Verbotener Singular-Key
 
-  validation_rules:
+    validation_rules:
     syntax_checks:
       allowed_metadata:
         - name
@@ -30,6 +32,14 @@ blueprint_validation:
         - "!input-Referenzprüfung"
         - "Selector-Typen gemäß HA-Dokumentation"
         - "Unerlaubte YAML-Tags Prüfung"
+      trigger_structure:
+        required_keys:
+          - platform
+        allowed_platforms:
+          - time
+          - state
+          - event
+          - template
 
     input_validation:
       description: "Eingabeparameter-Edge-Cases"
@@ -40,7 +50,7 @@ blueprint_validation:
 
     logic_checks:
       description: "Logische und zeitliche Konsistenz"
-      patterns:
+        patterns:
         - "UTC/Lokalzeit-Konvertierung"
         - "Sommerzeit-Übergangsbehandlung"
         - "Case-sensitive Entity-Prüfung"
