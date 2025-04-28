@@ -1,5 +1,14 @@
 # Changelog
 
+## [v4.25] - 2025-04-28
+### Fixed
+- Duplikate zwischen Gruppen werden jetzt garantiert mit difference-Filter entfernt
+- Inputs werden als Listen geprüft und behandelt, egal wie viele Entitäten ausgewählt sind
+- Problem gelöst, dass Gruppen im Trace leer waren trotz gesetzter Inputs
+- Logging und Zeit-/Saisonlogik bleiben erhalten
+
+---
+
 ## [v4.24] - 2025-04-28
 ### Fixed
 - Gruppen-Inputs werden jetzt direkt als Listen verwendet (keine Strings oder Platzhalter mehr)
