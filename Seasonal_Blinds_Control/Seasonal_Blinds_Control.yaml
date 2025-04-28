@@ -1,7 +1,7 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.26)
+  name: Saisonale Rollladensteuerung (v4.27)
   description: |
-    Fehlerresistente saisonale Steuerung von Rollläden. Gruppen-Inputs werden korrekt als Listen behandelt, Duplikate entfernt, Logging für Typ und Inhalt der Gruppen.
+    Fehlerresistente saisonale Steuerung von Rollläden. Listen-Inputs werden direkt verwendet, Duplikate mit einfacher Template-Logik entfernt, Logging ohne verbotene Attribute.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -109,16 +109,30 @@ action:
         winter: "{{ winter_open_time if winter_open_time else '07:00' }}"
       open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
       target_open_time: "{{ [sunrise, open_time]|max }}"
-      # Duplikate entfernen mit reject('in', ...) und Logging für Typ und Inhalt
-      final_group1: "{{ group1_covers | select('string') | reject('in', group2_covers | default([])) | list }}"
-      final_group2: "{{ group2_covers | select('string') | reject('in', group1_covers | default([])) | list }}"
+      # Duplikate manuell entfernen (keine Filter, nur Jinja2-Loop)
+      final_group1: >-
+        {% set result = [] %}
+        {% for e in group1_covers if group1_covers is iterable %}
+          {% if e not in group2_covers %}
+            {% set _ = result.append(e) %}
+          {% endif %}
+        {% endfor %}
+        {{ result }}
+      final_group2: >-
+        {% set result = [] %}
+        {% for e in group2_covers if group2_covers is iterable %}
+          {% if e not in group1_covers %}
+            {% set _ = result.append(e) %}
+          {% endif %}
+        {% endfor %}
+        {{ result }}
       group2_enabled: "{{ not is_state(group2_disable_switch, 'on') if group2_disable_switch else true }}"
 
   - service: system_log.write
     data:
       message: |
-        group1_covers={{ group1_covers }} (type={{ group1_covers.__class__.__name__ }})
-        group2_covers={{ group2_covers }} (type={{ group2_covers.__class__.__name__ }})
+        group1_covers={{ group1_covers }}
+        group2_covers={{ group2_covers }}
         final_group1={{ final_group1 }}
         final_group2={{ final_group2 }}
         spring_date={{ spring_date }}, summer_date={{ summer_date }}, autumn_date={{ autumn_date }}, sunrise={{ sunrise }}, current_season={{ current_season }}, target_open_time={{ target_open_time }}, group2_enabled={{ group2_enabled }}
