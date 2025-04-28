@@ -1,8 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.19)
+  name: Saisonale Rollladensteuerung (v4.20)
   description: |
     Vollautomatische saisonale Steuerung von Rollläden. Alle Logik und Fehlerbehandlung in Actions.
-    Blueprint-Variablen sind minimal und defensiv.
+    Blueprint-Variablen sind minimal und defensiv. Datumsumwandlungen mit strptime-Filter.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -76,13 +76,11 @@ trigger:
 
 action:
   - variables:
-      # Fallbacks für alle Eingaben, jetzt OHNE "input."
-      spring_date: "{{ spring_start if spring_start is defined and spring_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '20-03' }}"
-      summer_date: "{{ summer_start if summer_start is defined and summer_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '21-06' }}"
-      autumn_date: "{{ autumn_start if autumn_start is defined and autumn_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '23-09' }}"
+      spring_date: "{{ spring_start if spring_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '20-03' }}"
+      summer_date: "{{ summer_start if summer_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '21-06' }}"
+      autumn_date: "{{ autumn_start if autumn_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '23-09' }}"
       now: "{{ now() }}"
       year: "{{ now().year }}"
-      # Sonnenaufgang
       safe_sunrise: >-
         {% set rising = state_attr('sun.sun', 'next_rising') %}
         {% if rising is string %}
@@ -90,10 +88,9 @@ action:
         {% else %}
           {{ now().replace(hour=7, minute=0, second=0) }}
         {% endif %}
-      # Saisonlogik
-      spring_dt: "{{ strptime(spring_date ~ '-' ~ year, '%d-%m-%Y') }}"
-      summer_dt: "{{ strptime(summer_date ~ '-' ~ year, '%d-%m-%Y') }}"
-      autumn_dt: "{{ strptime(autumn_date ~ '-' ~ year, '%d-%m-%Y') }}"
+      spring_dt: "{{ (spring_date ~ '-' ~ year) | strptime('%d-%m-%Y') }}"
+      summer_dt: "{{ (summer_date ~ '-' ~ year) | strptime('%d-%m-%Y') }}"
+      autumn_dt: "{{ (autumn_date ~ '-' ~ year) | strptime('%d-%m-%Y') }}"
       now_ts: "{{ as_timestamp(now) }}"
       spring_ts: "{{ as_timestamp(spring_dt) }}"
       summer_ts: "{{ as_timestamp(summer_dt) }}"
@@ -102,7 +99,6 @@ action:
         {% if now_ts >= spring_ts and now_ts < summer_ts %}spring
         {% elif now_ts >= summer_ts and now_ts < autumn_ts %}summer
         {% else %}winter{% endif %}
-      # Zielzeit
       season_times:
         spring: "{{ spring_open_time if spring_open_time else '06:30' }}"
         summer: "{{ summer_open_time if summer_open_time else '06:00' }}"
@@ -110,7 +106,6 @@ action:
       open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
       sunrise: "{{ safe_sunrise.strftime('%H:%M') if safe_sunrise else '07:00' }}"
       target_open_time: "{{ [sunrise, open_time]|max }}"
-      # Gruppen
       group1: "{{ group1_covers|default([]) }}"
       group2: "{{ group2_covers|default([]) }}"
       group2_disable: "{{ group2_disable_switch|default('') }}"
