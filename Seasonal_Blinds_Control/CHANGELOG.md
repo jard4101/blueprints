@@ -1,5 +1,13 @@
 # Changelog
 
+## [v4.19] - 2025-04-28
+### Fixed
+- Fehler `UndefinedError: 'input' is undefined` durch direkte Verwendung der Input-Namen in den Action-Variablen behoben
+- Blueprint ist jetzt robust gegen fehlende oder fehlerhafte Inputs im Action-Block
+- Logging aller Variablen bei jedem Trigger garantiert
+
+---
+
 ## [v4.18] - 2025-04-28
 ### Changed
 - Alle komplexen Berechnungen und Fehlerbehandlung aus den Variablen entfernt und in die Actions verschoben
