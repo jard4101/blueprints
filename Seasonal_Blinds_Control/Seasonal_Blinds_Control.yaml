@@ -1,8 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.17)
+  name: Saisonale Rollladensteuerung (v4.18)
   description: |
-    Vollautomatische saisonale Steuerung von Rollläden nach Sonnenaufgang, Jahreszeit und Konfiguration.
-    Maximale Fehlerresilienz: Defensiv, keine manuellen Trigger, Logging aller Variablen zu jedem Trigger.
+    Vollautomatische saisonale Steuerung von Rollläden. Alle Logik und Fehlerbehandlung in Actions.
+    Blueprint-Variablen sind minimal und defensiv.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -66,63 +66,6 @@ mode: parallel
 max: 5
 max_exceeded: silent
 
-variables:
-  # Defensives Makro für Datumseingaben
-  validated_date: >-
-    {% macro validate(date_str, default) -%}
-      {% if date_str is string and date_str | regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') %}
-        {{ date_str }}
-      {% else %}
-        {{ default }}
-      {% endif %}
-    {%- endmacro %}
-  validated_spring: "{{ validated_date(input.spring_start, '20-03') }}"
-  validated_summer: "{{ validated_date(input.summer_start, '21-06') }}"
-  validated_autumn: "{{ validated_date(input.autumn_start, '23-09') }}"
-
-  # Defensiver Sonnenaufgang
-  safe_sunrise: >-
-    {% set rising = state_attr('sun.sun', 'next_rising') %}
-    {% if rising is string %}
-      {{ as_local(rising).replace(second=0) }}
-    {% else %}
-      {{ now().replace(hour=7, minute=0, second=0) }}
-    {% endif %}
-
-  # Saisonlogik mit Fallbacks
-  current_season: >-
-    {% set now_ts = as_timestamp(utcnow()) %}
-    {% set spring_ts = as_timestamp(strptime(validated_spring ~ '-' ~ now().year, '%d-%m-%Y')) if validated_spring is string else 0 %}
-    {% set summer_ts = as_timestamp(strptime(validated_summer ~ '-' ~ now().year, '%d-%m-%Y')) if validated_summer is string else 0 %}
-    {% set autumn_ts = as_timestamp(strptime(validated_autumn ~ '-' ~ now().year, '%d-%m-%Y')) if validated_autumn is string else 0 %}
-    {% if spring_ts > 0 and summer_ts > 0 and now_ts >= spring_ts and now_ts < summer_ts %}spring
-    {% elif summer_ts > 0 and autumn_ts > 0 and now_ts >= summer_ts and now_ts < autumn_ts %}summer
-    {% else %}winter{% endif %}
-
-  # Zielzeitberechnung mit Fallbacks
-  target_open_time: >-
-    {% set season_times = {
-      'spring': input.spring_open_time if input.spring_open_time else '06:30',
-      'summer': input.summer_open_time if input.summer_open_time else '06:00',
-      'winter': input.winter_open_time if input.winter_open_time else '07:00'
-    } %}
-    {% set sunrise = safe_sunrise.strftime('%H:%M') if safe_sunrise else '07:00' %}
-    {% set open_time = season_times[current_season] if current_season in season_times else '07:00' %}
-    {{ [sunrise, open_time] | max }}
-
-  # Gruppen mit Fallbacks und Duplikat-Filter
-  final_group1: >-
-    {{ (input.group1_covers | default([])) | reject('in', input.group2_covers | default([])) | list }}
-  final_group2: >-
-    {{ (input.group2_covers | default([])) | reject('in', input.group1_covers | default([])) | list }}
-
-  group2_enabled: >-
-    {% if input.group2_disable_switch is defined and input.group2_disable_switch %}
-      {{ not is_state(input.group2_disable_switch, 'on') }}
-    {% else %}
-      true
-    {% endif %}
-
 trigger:
   - platform: time_pattern
     minutes: "/1"
@@ -132,14 +75,58 @@ trigger:
     to: "above_horizon"
 
 action:
-  # Logge alle Variablen für die Fehlersuche
+  # 1. Setze alle relevanten Variablen in einer Action (fehlerresilient)
+  - variables:
+      # Fallbacks für alle Eingaben
+      spring_date: "{{ iif(input.spring_start is defined and input.spring_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$'), input.spring_start, '20-03') }}"
+      summer_date: "{{ iif(input.summer_start is defined and input.summer_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$'), input.summer_start, '21-06') }}"
+      autumn_date: "{{ iif(input.autumn_start is defined and input.autumn_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$'), input.autumn_start, '23-09') }}"
+      now: "{{ now() }}"
+      year: "{{ now().year }}"
+      # Sonnenaufgang
+      safe_sunrise: >-
+        {% set rising = state_attr('sun.sun', 'next_rising') %}
+        {% if rising is string %}
+          {{ as_local(rising).replace(second=0) }}
+        {% else %}
+          {{ now().replace(hour=7, minute=0, second=0) }}
+        {% endif %}
+      # Saisonlogik
+      spring_dt: "{{ strptime(spring_date ~ '-' ~ year, '%d-%m-%Y') }}"
+      summer_dt: "{{ strptime(summer_date ~ '-' ~ year, '%d-%m-%Y') }}"
+      autumn_dt: "{{ strptime(autumn_date ~ '-' ~ year, '%d-%m-%Y') }}"
+      now_ts: "{{ as_timestamp(now) }}"
+      spring_ts: "{{ as_timestamp(spring_dt) }}"
+      summer_ts: "{{ as_timestamp(summer_dt) }}"
+      autumn_ts: "{{ as_timestamp(autumn_dt) }}"
+      current_season: >-
+        {% if now_ts >= spring_ts and now_ts < summer_ts %}spring
+        {% elif now_ts >= summer_ts and now_ts < autumn_ts %}summer
+        {% else %}winter{% endif %}
+      # Zielzeit
+      season_times:
+        spring: "{{ input.spring_open_time if input.spring_open_time else '06:30' }}"
+        summer: "{{ input.summer_open_time if input.summer_open_time else '06:00' }}"
+        winter: "{{ input.winter_open_time if input.winter_open_time else '07:00' }}"
+      open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
+      sunrise: "{{ safe_sunrise.strftime('%H:%M') if safe_sunrise else '07:00' }}"
+      target_open_time: "{{ [sunrise, open_time]|max }}"
+      # Gruppen
+      group1: "{{ input.group1_covers|default([]) }}"
+      group2: "{{ input.group2_covers|default([]) }}"
+      group2_disable: "{{ input.group2_disable_switch|default('') }}"
+      final_group1: "{{ group1|reject('in', group2)|list }}"
+      final_group2: "{{ group2|reject('in', group1)|list }}"
+      group2_enabled: "{{ not is_state(group2_disable, 'on') if group2_disable else true }}"
+
+  # 2. Logging für alle Variablen
   - service: system_log.write
     data:
       message: |
         [Rollladen-Blueprint] Variablen:
-        validated_spring={{ validated_spring }},
-        validated_summer={{ validated_summer }},
-        validated_autumn={{ validated_autumn }},
+        spring_date={{ spring_date }},
+        summer_date={{ summer_date }},
+        autumn_date={{ autumn_date }},
         safe_sunrise={{ safe_sunrise }},
         current_season={{ current_season }},
         target_open_time={{ target_open_time }},
@@ -148,19 +135,19 @@ action:
         group2_enabled={{ group2_enabled }}
       level: error
 
+  # 3. Ablauf nur, wenn Zielzeit erreicht
   - choose:
-      - conditions: >
-          {{ now().strftime('%H:%M') == target_open_time }}
+      - conditions: "{{ now().strftime('%H:%M') == target_open_time }}"
         sequence:
           - parallel:
               - service: cover.open_cover
                 target:
                   entity_id: "{{ final_group1 }}"
-                enabled: "{{ final_group1 | length > 0 }}"
+                enabled: "{{ final_group1|length > 0 }}"
               - service: cover.open_cover
                 target:
                   entity_id: "{{ final_group2 }}"
-                enabled: "{{ (final_group2 | length > 0) and group2_enabled }}"
+                enabled: "{{ final_group2|length > 0 and group2_enabled }}"
           - service: system_log.write
             data:
               message: >
@@ -168,7 +155,7 @@ action:
                 Gruppe1: {{ final_group1 }}
                 Gruppe2: {{ final_group2 }}
                 Saison: {{ current_season }}
-                Sonnenaufgang: {{ safe_sunrise.strftime('%H:%M') if safe_sunrise else '07:00' }}
+                Sonnenaufgang: {{ sunrise }}
                 Zielzeit: {{ target_open_time }}
               level: info
             enabled: "{{ input.enable_logging }}"
