@@ -1,9 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.14)
+  name: Saisonale Rollladensteuerung (v4.15)
   description: |
-    Robuste, dynamische Steuerung von Rollläden nach Sonnenaufgang, Saison und Test.
-    Keine dynamischen Zeit-Trigger, sondern Zeitmuster-Trigger mit Zielzeit-Prüfung.
-    Unterstützt manuelles Auslösen und Logging.
+    Vollautomatische saisonale Steuerung von Rollläden nach Sonnenaufgang, Jahreszeit und Konfiguration.
+    Keine manuellen Trigger, keine !input-Trigger, robust gegen alle Test- und Edge-Cases.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -99,14 +98,14 @@ variables:
       'winter': input.winter_open_time
     } %}
     {{ [safe_sunrise.strftime('%H:%M'), season_times[current_season]] | max }}
-  final_groups: >-
-    {
-      "group1": {{ input.group1_covers | default([]) | reject('in', input.group2_covers | default([])) }},
-      "group2": {{ input.group2_covers | default([]) | reject('in', input.group1_covers | default([])) }}
-    }
+  # Duplikate vermeiden, leere Gruppen abfangen
+  final_group1: >-
+    {{ (input.group1_covers | default([])) | reject('in', input.group2_covers | default([])) | list }}
+  final_group2: >-
+    {{ (input.group2_covers | default([])) | reject('in', input.group1_covers | default([])) | list }}
   group2_enabled: >-
-    {{ not is_state(input.group2_disable_switch, 'on') 
-       if input.group2_disable_switch 
+    {{ not is_state(input.group2_disable_switch, 'on')
+       if input.group2_disable_switch
        else true }}
 
 trigger:
@@ -116,8 +115,6 @@ trigger:
     entity_id: sun.sun
     from: "below_horizon"
     to: "above_horizon"
-  - platform: event
-    event_type: manual_trigger
 
 action:
   - choose:
@@ -127,24 +124,20 @@ action:
           - parallel:
               - service: cover.open_cover
                 target:
-                  entity_id: "{{ final_groups.group1 }}"
-                enabled: "{{ final_groups.group1 | length > 0 }}"
+                  entity_id: "{{ final_group1 }}"
+                enabled: "{{ final_group1 | length > 0 }}"
               - service: cover.open_cover
                 target:
-                  entity_id: "{{ final_groups.group2 }}"
-                enabled: "{{ (final_groups.group2 | length > 0) and group2_enabled }}"
-      - conditions: "{{ trigger is not defined or (trigger.platform is defined and trigger.platform == 'event') }}"
-        sequence:
-          - service: persistent_notification.create
-            data:
-              title: "Manuell ausgelöst"
-              message: "Automation wurde manuell aktiviert: {{ now().strftime('%d.%m.%Y %H:%M') }}"
+                  entity_id: "{{ final_group2 }}"
+                enabled: "{{ (final_group2 | length > 0) and group2_enabled }}"
           - service: system_log.write
             data:
-              message: "Manueller Trigger erfolgreich: {{ now().timestamp() }}"
+              message: >
+                Rollladen-Automation ausgelöst am {{ now().strftime('%d.%m.%Y %H:%M') }}
+                Gruppe1: {{ final_group1 }}
+                Gruppe2: {{ final_group2 }}
+                Saison: {{ current_season }}
+                Sonnenaufgang: {{ safe_sunrise.strftime('%H:%M') }}
+                Zielzeit: {{ target_open_time }}
               level: info
-  - service: system_log.write
-    data:
-      message: "Ausführung abgeschlossen: {{ now().timestamp() }}"
-      level: info
-    enabled: "{{ input.enable_logging }}"
+            enabled: "{{ input.enable_logging }}"
