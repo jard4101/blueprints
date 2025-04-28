@@ -2,8 +2,12 @@
 
 ## [v4.20] - 2025-04-28
 ### Fixed
-- `TypeError: 'str' object is not callable` durch korrekte Verwendung des `strptime`-Filters behoben
-- Jinja2-Filter-Syntax für alle Datumsumwandlungen implementiert
+- Fehler `No filter named 'strptime'` durch korrekte Nutzung von strptime als Funktion mit 3 Parametern behoben
+- Keine Typumwandlungen mehr ohne Fallback
+- Validierungsregeln um strptime-Fehler erweitert
+
+### Changed
+- Blueprint prüft und wandelt Datumswerte jetzt nur noch als Funktion, nie als Filter
 
 ---
 
