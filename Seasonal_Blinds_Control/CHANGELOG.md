@@ -1,5 +1,13 @@
 # Changelog
 
+## [v4.22] - 2025-04-28
+### Fixed
+- Gruppen-Inputs werden jetzt immer als Listen behandelt, auch wenn nur eine Entität ausgewählt ist (sequence/string-Check)
+- Problem gelöst, dass final_group1/final_group2 im Trace leer waren, obwohl Inputs gesetzt waren
+- Logging und Zeit-/Saisonlogik bleiben erhalten
+
+---
+
 ## [v4.21] - 2025-04-28
 ### Fixed
 - TypeError: 'str' object is not callable durch Typprüfungen und defensive strptime/strftime-Nutzung beseitigt
