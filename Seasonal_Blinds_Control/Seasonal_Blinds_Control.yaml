@@ -1,7 +1,7 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.27)
+  name: Saisonale Rollladensteuerung (v4.28)
   description: |
-    Fehlerresistente saisonale Steuerung von Rollläden. Listen-Inputs werden direkt verwendet, Duplikate mit einfacher Template-Logik entfernt, Logging ohne verbotene Attribute.
+    Fehlerresistente saisonale Steuerung von Rollläden. Inputs werden immer als Listen behandelt, Duplikate entfernt, Logging für Typ und Inhalt der Gruppen.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -109,19 +109,36 @@ action:
         winter: "{{ winter_open_time if winter_open_time else '07:00' }}"
       open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
       target_open_time: "{{ [sunrise, open_time]|max }}"
-      # Duplikate manuell entfernen (keine Filter, nur Jinja2-Loop)
+      # Inputs IMMER als Liste behandeln
+      group1: >-
+        {% if group1_covers is string %}
+          [group1_covers]
+        {% elif group1_covers is iterable %}
+          {{ group1_covers }}
+        {% else %}
+          []
+        {% endif %}
+      group2: >-
+        {% if group2_covers is string %}
+          [group2_covers]
+        {% elif group2_covers is iterable %}
+          {{ group2_covers }}
+        {% else %}
+          []
+        {% endif %}
+      # Duplikate entfernen
       final_group1: >-
         {% set result = [] %}
-        {% for e in group1_covers if group1_covers is iterable %}
-          {% if e not in group2_covers %}
+        {% for e in group1 %}
+          {% if e not in group2 %}
             {% set _ = result.append(e) %}
           {% endif %}
         {% endfor %}
         {{ result }}
       final_group2: >-
         {% set result = [] %}
-        {% for e in group2_covers if group2_covers is iterable %}
-          {% if e not in group1_covers %}
+        {% for e in group2 %}
+          {% if e not in group1 %}
             {% set _ = result.append(e) %}
           {% endif %}
         {% endfor %}
@@ -133,6 +150,8 @@ action:
       message: |
         group1_covers={{ group1_covers }}
         group2_covers={{ group2_covers }}
+        group1={{ group1 }}
+        group2={{ group2 }}
         final_group1={{ final_group1 }}
         final_group2={{ final_group2 }}
         spring_date={{ spring_date }}, summer_date={{ summer_date }}, autumn_date={{ autumn_date }}, sunrise={{ sunrise }}, current_season={{ current_season }}, target_open_time={{ target_open_time }}, group2_enabled={{ group2_enabled }}
