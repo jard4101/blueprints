@@ -1,7 +1,7 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.23)
+  name: Saisonale Rollladensteuerung (v4.24)
   description: |
-    Fehlerresistente saisonale Steuerung von Rollläden. Gruppen-Inputs werden korrekt als Listen behandelt und Duplikate entfernt.
+    Fehlerresistente saisonale Steuerung von Rollläden. Gruppen-Inputs werden korrekt als Listen behandelt und Duplikate entfernt. Zeitlogik und Logging robust.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -109,14 +109,10 @@ action:
         winter: "{{ winter_open_time if winter_open_time else '07:00' }}"
       open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
       target_open_time: "{{ [sunrise, open_time]|max }}"
-      # Inputs direkt als Listen übernehmen, keine Templates!
-      group1: group1_covers
-      group2: group2_covers
-      group2_disable: group2_disable_switch
-      # Duplikate entfernen
-      final_group1: "{{ group1|reject('in', group2)|list }}"
-      final_group2: "{{ group2|reject('in', group1)|list }}"
-      group2_enabled: "{{ not is_state(group2_disable, 'on') if group2_disable else true }}"
+      # Inputs direkt als Listen verwenden!
+      final_group1: "{{ group1_covers|reject('in', group2_covers)|list }}"
+      final_group2: "{{ group2_covers|reject('in', group1_covers)|list }}"
+      group2_enabled: "{{ not is_state(group2_disable_switch, 'on') if group2_disable_switch else true }}"
 
   - service: system_log.write
     data:
