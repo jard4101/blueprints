@@ -1,5 +1,12 @@
 # Changelog
 
+## [v4.20] - 2025-04-28
+### Fixed
+- `TypeError: 'str' object is not callable` durch korrekte Verwendung des `strptime`-Filters behoben
+- Jinja2-Filter-Syntax für alle Datumsumwandlungen implementiert
+
+---
+
 ## [v4.19] - 2025-04-28
 ### Fixed
 - Fehler `UndefinedError: 'input' is undefined` durch direkte Verwendung der Input-Namen in den Action-Variablen behoben
