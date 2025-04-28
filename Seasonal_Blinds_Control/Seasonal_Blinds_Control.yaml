@@ -1,8 +1,8 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.16)
+  name: Saisonale Rollladensteuerung (v4.17)
   description: |
     Vollautomatische saisonale Steuerung von Rollläden nach Sonnenaufgang, Jahreszeit und Konfiguration.
-    Maximale Fehlerresilienz: Alle Variablen defensiv, Logging aller Variablen zu jedem Trigger.
+    Maximale Fehlerresilienz: Defensiv, keine manuellen Trigger, Logging aller Variablen zu jedem Trigger.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
