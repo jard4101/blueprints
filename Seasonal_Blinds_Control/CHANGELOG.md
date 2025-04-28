@@ -1,5 +1,14 @@
 # Changelog
 
+## [v4.24] - 2025-04-28
+### Fixed
+- Gruppen-Inputs werden jetzt direkt als Listen verwendet (keine Strings oder Platzhalter mehr)
+- Duplikate zwischen Gruppen werden zuverlässig entfernt
+- Zeitvergleich und Logging weiter robust gemacht
+- Fehler aus dem Trace (leere Gruppen, falsche Zeitbedingung) behoben
+
+---
+
 ## [v4.23] - 2025-04-28
 ### Fixed
 - Gruppen-Inputs werden jetzt direkt als Listen übernommen, keine String-Konvertierung mehr
