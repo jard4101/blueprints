@@ -1,7 +1,7 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.25)
+  name: Saisonale Rollladensteuerung (v4.26)
   description: |
-    Fehlerresistente saisonale Steuerung von Rollläden. Gruppen-Inputs werden korrekt als Listen behandelt und Duplikate garantiert entfernt.
+    Fehlerresistente saisonale Steuerung von Rollläden. Gruppen-Inputs werden korrekt als Listen behandelt, Duplikate entfernt, Logging für Typ und Inhalt der Gruppen.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -109,30 +109,19 @@ action:
         winter: "{{ winter_open_time if winter_open_time else '07:00' }}"
       open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
       target_open_time: "{{ [sunrise, open_time]|max }}"
-      # Duplikate entfernen mit difference-Filter, Inputs als Listen
-      final_group1: >
-        {% set g1 = group1_covers if group1_covers is iterable else [] %}
-        {% set g2 = group2_covers if group2_covers is iterable else [] %}
-        {{ g1 | difference(g2) | list }}
-      final_group2: >
-        {% set g1 = group1_covers if group1_covers is iterable else [] %}
-        {% set g2 = group2_covers if group2_covers is iterable else [] %}
-        {{ g2 | difference(g1) | list }}
+      # Duplikate entfernen mit reject('in', ...) und Logging für Typ und Inhalt
+      final_group1: "{{ group1_covers | select('string') | reject('in', group2_covers | default([])) | list }}"
+      final_group2: "{{ group2_covers | select('string') | reject('in', group1_covers | default([])) | list }}"
       group2_enabled: "{{ not is_state(group2_disable_switch, 'on') if group2_disable_switch else true }}"
 
   - service: system_log.write
     data:
       message: |
-        [Rollladen-Blueprint] Variablen:
-        spring_date={{ spring_date }},
-        summer_date={{ summer_date }},
-        autumn_date={{ autumn_date }},
-        sunrise={{ sunrise }},
-        current_season={{ current_season }},
-        target_open_time={{ target_open_time }},
-        final_group1={{ final_group1 }},
-        final_group2={{ final_group2 }},
-        group2_enabled={{ group2_enabled }}
+        group1_covers={{ group1_covers }} (type={{ group1_covers.__class__.__name__ }})
+        group2_covers={{ group2_covers }} (type={{ group2_covers.__class__.__name__ }})
+        final_group1={{ final_group1 }}
+        final_group2={{ final_group2 }}
+        spring_date={{ spring_date }}, summer_date={{ summer_date }}, autumn_date={{ autumn_date }}, sunrise={{ sunrise }}, current_season={{ current_season }}, target_open_time={{ target_open_time }}, group2_enabled={{ group2_enabled }}
       level: error
 
   - choose:
