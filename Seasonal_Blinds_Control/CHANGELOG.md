@@ -1,5 +1,66 @@
 # Changelog
 
+## [v4.18] - 2025-04-28
+### Changed
+- Alle komplexen Berechnungen und Fehlerbehandlung aus den Variablen entfernt und in die Actions verschoben
+- Blueprint-Variablen sind jetzt minimal und defensiv, alle Logik in Actions
+- Fehler in Variablen führen jetzt zu Log-Einträgen, nicht mehr zu Abbrüchen vor der Action
+- Automation ist jetzt garantiert tracebar und debugbar
+
+---
+
+## [v4.17] - 2025-04-28
+### Fixed
+- Blueprint-Variablen und Makros nochmals vereinfacht und defensiver gestaltet
+- Fehlerbehandlung für fehlende oder ungültige Eingaben/Sensoren weiter verbessert
+- Keine manuellen Trigger mehr, nur noch vollautomatische Steuerung
+- Logging für alle Variablen bleibt erhalten
+
+---
+
+## [v4.16] - 2025-04-28
+### Changed
+- Noch defensivere Makros und Variablen, alle Berechnungen mit Fallbacks
+- system_log.write loggt alle Variablen zu jedem Trigger
+- Blueprint ist jetzt maximal fehlertolerant und entspricht allen Best Practices
+
+---
+
+## [v4.15] - 2025-04-28
+### Fixed
+- Alle Variablen defensiv mit Fallbacks abgesichert (kein Abbruch mehr bei fehlenden/falschen Sensoren oder Inputs)
+- Fehler „Aus unbekanntem Grund gestoppt“ bei minütlichem Trigger endgültig beseitigt
+- Logging für alle kritischen Variablen und Aktionen integriert
+
+### Changed
+- Robustheit gegen leere Gruppen, Duplikate und fehlerhafte Eingaben weiter erhöht
+- Dokumentation und Validierungsregeln aktualisiert
+
+---
+
+## [v4.14] - 2025-04-27
+### Changed
+- Entfernt: manueller Test-Button und alle manuellen Trigger
+- Umgestellt auf vollautomatische Steuerung: Nur noch Zeitmuster- und Sonnenaufgangs-Trigger
+- Zeitprüfung erfolgt jetzt ausschließlich in der Bedingung, nicht mehr im Trigger
+- Blueprint prüft Zielzeit mit `time_pattern`-Trigger und Bedingung
+
+### Fixed
+- Fehler durch dynamische Jinja2-Templates im Trigger endgültig beseitigt
+- Logging und Benachrichtigung für manuelles Auslösen entfernt
+
+---
+
+## [v4.13] - 2025-04-27
+### Added
+- Fester Test-Button (input_button.test) als zusätzlicher Trigger für manuelle Tests
+- Blueprint jetzt zuverlässig testbar über Helper-Button, keine !input-Trigger mehr
+
+### Fixed
+- Kein Fehler mehr beim manuellen Auslösen (Testknopf funktioniert garantiert)
+
+---
+
 ## [v4.12] - 2025-04-27
 ### Added
 - Helper-Trigger (input_button) für sicheres manuelles Testen
