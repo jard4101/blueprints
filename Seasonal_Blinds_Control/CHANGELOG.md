@@ -1,5 +1,14 @@
 # Changelog
 
+## [v4.21] - 2025-04-28
+### Fixed
+- TypeError: 'str' object is not callable durch Typprüfungen und defensive strptime/strftime-Nutzung beseitigt
+- Keine Überschreibung von Funktionsnamen als Variablen
+- Sonnenaufgang und Saisonzeiten werden immer korrekt als String geliefert
+- Logging aller Variablen für Debugging bleibt erhalten
+
+---
+
 ## [v4.20] - 2025-04-28
 ### Fixed
 - Fehler `No filter named 'strptime'` durch korrekte Nutzung von strptime als Funktion mit 3 Parametern behoben
