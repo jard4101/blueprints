@@ -1,5 +1,13 @@
 # Changelog
 
+## [v4.23] - 2025-04-28
+### Fixed
+- Gruppen-Inputs werden jetzt direkt als Listen übernommen, keine String-Konvertierung mehr
+- Duplikate zwischen Gruppen werden zuverlässig entfernt (keine Entität kann doppelt angesteuert werden)
+- Problem gelöst, dass Gruppen trotz gesetzter Inputs leer waren
+
+---
+
 ## [v4.22] - 2025-04-28
 ### Fixed
 - Gruppen-Inputs werden jetzt immer als Listen behandelt, auch wenn nur eine Entität ausgewählt ist (sequence/string-Check)
