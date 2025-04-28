@@ -1,7 +1,7 @@
 blueprint:
-  name: Saisonale Rollladensteuerung (v4.28)
+  name: Saisonale Rollladensteuerung (v4.30)
   description: |
-    Fehlerresistente saisonale Steuerung von Rollläden. Inputs werden immer als Listen behandelt, Duplikate entfernt, Logging für Typ und Inhalt der Gruppen.
+    Robuste, minimalistische Version: Gruppen-Inputs werden direkt verwendet, keine Listenverarbeitung oder Duplikatlogik in Variablen. Logging zeigt Inputs direkt.
   domain: automation
   source_url: https://raw.githubusercontent.com/jard4101/blueprints/main/Seasonal_Blinds_Control.yaml
   author: jard4101
@@ -73,110 +73,36 @@ trigger:
     to: "above_horizon"
 
 action:
-  - variables:
-      year: "{{ now().year }}"
-      now_dt: "{{ now() }}"
-      spring_date: "{{ spring_start if spring_start is defined and spring_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '20-03' }}"
-      summer_date: "{{ summer_start if summer_start is defined and summer_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '21-06' }}"
-      autumn_date: "{{ autumn_start if autumn_start is defined and autumn_start|regex_match('^(0[1-9]|1[0-9]|2[0-9]|3[0-1])-(0[1-9]|1[0-2])$') else '23-09' }}"
-      rising: "{{ state_attr('sun.sun', 'next_rising') }}"
-      safe_sunrise_dt: >-
-        {% if rising is string %}
-          {{ strptime(rising, '%Y-%m-%dT%H:%M:%S%z', now()) }}
-        {% else %}
-          {{ now().replace(hour=7, minute=0, second=0) }}
-        {% endif %}
-      sunrise: >-
-        {% if safe_sunrise_dt is string %}
-          07:00
-        {% else %}
-          {{ safe_sunrise_dt.strftime('%H:%M') }}
-        {% endif %}
-      spring_dt: "{{ strptime(spring_date ~ '-' ~ year, '%d-%m-%Y', now()) }}"
-      summer_dt: "{{ strptime(summer_date ~ '-' ~ year, '%d-%m-%Y', now()) }}"
-      autumn_dt: "{{ strptime(autumn_date ~ '-' ~ year, '%d-%m-%Y', now()) }}"
-      now_ts: "{{ as_timestamp(now_dt) }}"
-      spring_ts: "{{ as_timestamp(spring_dt, 0) }}"
-      summer_ts: "{{ as_timestamp(summer_dt, 0) }}"
-      autumn_ts: "{{ as_timestamp(autumn_dt, 0) }}"
-      current_season: >-
-        {% if now_ts >= spring_ts and now_ts < summer_ts %}spring
-        {% elif now_ts >= summer_ts and now_ts < autumn_ts %}summer
-        {% else %}winter{% endif %}
-      season_times:
-        spring: "{{ spring_open_time if spring_open_time else '06:30' }}"
-        summer: "{{ summer_open_time if summer_open_time else '06:00' }}"
-        winter: "{{ winter_open_time if winter_open_time else '07:00' }}"
-      open_time: "{{ season_times[current_season] if current_season in season_times else '07:00' }}"
-      target_open_time: "{{ [sunrise, open_time]|max }}"
-      # Inputs IMMER als Liste behandeln
-      group1: >-
-        {% if group1_covers is string %}
-          [group1_covers]
-        {% elif group1_covers is iterable %}
-          {{ group1_covers }}
-        {% else %}
-          []
-        {% endif %}
-      group2: >-
-        {% if group2_covers is string %}
-          [group2_covers]
-        {% elif group2_covers is iterable %}
-          {{ group2_covers }}
-        {% else %}
-          []
-        {% endif %}
-      # Duplikate entfernen
-      final_group1: >-
-        {% set result = [] %}
-        {% for e in group1 %}
-          {% if e not in group2 %}
-            {% set _ = result.append(e) %}
-          {% endif %}
-        {% endfor %}
-        {{ result }}
-      final_group2: >-
-        {% set result = [] %}
-        {% for e in group2 %}
-          {% if e not in group1 %}
-            {% set _ = result.append(e) %}
-          {% endif %}
-        {% endfor %}
-        {{ result }}
-      group2_enabled: "{{ not is_state(group2_disable_switch, 'on') if group2_disable_switch else true }}"
-
   - service: system_log.write
     data:
       message: |
         group1_covers={{ group1_covers }}
         group2_covers={{ group2_covers }}
-        group1={{ group1 }}
-        group2={{ group2 }}
-        final_group1={{ final_group1 }}
-        final_group2={{ final_group2 }}
-        spring_date={{ spring_date }}, summer_date={{ summer_date }}, autumn_date={{ autumn_date }}, sunrise={{ sunrise }}, current_season={{ current_season }}, target_open_time={{ target_open_time }}, group2_enabled={{ group2_enabled }}
+        spring_open_time={{ spring_open_time }}
+        summer_open_time={{ summer_open_time }}
+        winter_open_time={{ winter_open_time }}
+        group2_disable_switch={{ group2_disable_switch }}
       level: error
 
   - choose:
-      - conditions: "{{ now().strftime('%H:%M') == target_open_time }}"
+      - conditions: >
+          {{ now().strftime('%H:%M') == spring_open_time }}
         sequence:
-          - parallel:
-              - service: cover.open_cover
-                target:
-                  entity_id: "{{ final_group1 }}"
-                enabled: "{{ final_group1|length > 0 }}"
-              - service: cover.open_cover
-                target:
-                  entity_id: "{{ final_group2 }}"
-                enabled: "{{ final_group2|length > 0 and group2_enabled }}"
+          - service: cover.open_cover
+            target:
+              entity_id: "{{ group1_covers }}"
+            enabled: "{{ group1_covers|length > 0 }}"
+          - service: cover.open_cover
+            target:
+              entity_id: "{{ group2_covers }}"
+            enabled: >
+              {{ group2_covers|length > 0 and is_state(group2_disable_switch, 'off') }}
           - service: system_log.write
             data:
               message: >
                 Rollladen-Automation ausgelöst am {{ now().strftime('%d.%m.%Y %H:%M') }}
-                Gruppe1: {{ final_group1 }}
-                Gruppe2: {{ final_group2 }}
-                Saison: {{ current_season }}
-                Sonnenaufgang: {{ sunrise }}
-                Zielzeit: {{ target_open_time }}
+                Gruppe1: {{ group1_covers }}
+                Gruppe2: {{ group2_covers }}
+                Zeit: {{ spring_open_time }}
               level: info
             enabled: "{{ enable_logging }}"
