@@ -1,6 +1,6 @@
 blueprint_validation:
   metadata:
-    version: "5.1"
+    version: "5.3"
     author: "jard4101"
     compatibility: "Home Assistant 2025.4+ (letzte 4 Versionen)"
     required_fields:
@@ -75,69 +75,86 @@ blueprint_validation:
 
     logic_checks:
       input_references_and_variables:
-        - "Inputs in Action-Variablen und Bedingungen nur direkt per Namen (z.B. group1_covers), nicht als input.group1_covers referenzieren"
-        - "Blueprint-Variablen im Header möglichst einfach halten; komplexe Logik/Makros nur in Actions"
-        - "Alle Variablen und Makros müssen Fallback-Wert liefern, nie None/undefined zurückgeben"
-        - "Keine Typumwandlungen ohne Fallback (z.B. strptime, as_timestamp)"
-        - "Alle Sensor-/Entity-Attribute auf Verfügbarkeit prüfen (is defined, is string, default)"
+        - "Inputs dürfen im Action-Block NICHT direkt als Jinja2-Variable ({{ input_name }}) verwendet werden, sondern müssen im Blueprint-Header unter variables: mit !input zugewiesen werden (z.B. var_name: !input input_name)."
+        - "Im Action-Block dürfen ausschließlich diese Blueprint-Variablen (z.B. {{ var_name }}) verwendet werden."
+        - "Keine Jinja2-Blockstatements ({% ... %}) oder komplexe Listenoperationen in Action-Variablen – nur reine Expressions ({{ ... }})."
+        - "Alle Variablen und Makros müssen einen Fallback-Wert liefern und dürfen nie None/undefined zurückgeben."
+        - "Keine Typumwandlungen ohne Fallback (z.B. strptime, as_timestamp)."
+        - "Alle Sensor- und Entity-Attribute müssen auf Verfügbarkeit geprüft werden (is defined, is string, default)."
+        - "strptime darf niemals als Filter (| strptime) verwendet werden, sondern nur als Funktion mit 3 Parametern (z.B. strptime(..., ..., now()))."
+        - "Niemals Funktionsnamen wie str, now, strptime, strftime als Variablennamen verwenden (TypeError-Prävention)."
+        - "Verwende states(), is_state(), state_attr() statt direktem Zugriff auf states.entity.state."
+        - "Bei Zeit-/Datums-Inputs sollten Validierungen und ggf. Korrekturen/Abbrüche erfolgen, wenn Werte nicht plausibel (z.B. Endzeit vor Startzeit) sind."
+        - "Alle Listen-Inputs müssen im Blueprint-Header als Variable mit !input zugewiesen und im Action-Block direkt verwendet werden."
       trigger_and_time_logic:
-        - "Keine Templates im Trigger erlaubt (z.B. at: \"{{ ... }}\" ist verboten)"
-        - "Dynamische Zeitberechnung (z.B. Sonnenaufgang, saisonale Zeiten) nur in Action-Variablen und Bedingungen"
-        - "Für dynamische Zeitvergleiche time_pattern verwenden und Zielzeit in der Bedingung prüfen"
-      robustness_and_resilience:
-        - "Blueprint muss bei fehlenden oder fehlerhaften Inputs/Sensoren stabil laufen (kein Abbruch, keine Endlosschleife)"
-        - "Leere Gruppen immer mit default([]) behandeln"
-        - "Duplikate zwischen Gruppen entfernen"
-        - "Jede Action, die fehlschlagen könnte, sollte geloggt werden (system_log.write)"
+        - "Keine Templates im Trigger erlaubt (z.B. at: \"{{ ... }}\" ist verboten)."
+        - "Dynamische Zeitberechnung (z.B. Sonnenaufgang, saisonale Zeiten) immer in Blueprint-Variablen oder Bedingungen prüfen."
+        - "Für dynamische Zeitvergleiche time_pattern verwenden und Zielzeit in der Bedingung prüfen."
+      robustness_resilience_and_error_handling:
+        - "Blueprint muss bei fehlenden oder fehlerhaften Inputs/Sensoren stabil laufen (kein Abbruch, keine Endlosschleife)."
+        - "Leere Gruppen immer mit default([]) behandeln."
+        - "Duplikate zwischen Gruppen sollten idealerweise schon im UI entfernt werden."
+        - "Keine Duplikat- oder Listenfilterlogik in Action-Variablen, sondern direkt die Inputs als Listen verwenden."
+        - "Jede Action, die fehlschlagen könnte, sollte geloggt werden (system_log.write)."
+        - "Fehlerbehandlung so einfach wie möglich halten und Fehler immer loggen."
+        - "Fange nur spezifische Exceptions ab, die du wirklich behandeln willst (sofern im YAML/Jinja2-Kontext möglich)."
+        - "Nutze Fallbacks oder Defaults, wo sinnvoll."
       testability_and_logging:
-        - "Blueprint muss Logging für alle kritischen Variablen/Aktionen bieten"
-        - "Blueprint muss ohne manuelle Trigger testbar sein (z.B. mit time_pattern oder echten Sensortriggern)"
-        - "Im Fehlerfall müssen alle Variablen im Log erscheinen"
+        - "Blueprint muss Logging für alle kritischen Variablen/Aktionen bieten."
+        - "Blueprint muss ohne manuelle Trigger testbar sein (z.B. mit time_pattern oder echten Sensortriggern)."
+        - "Im Fehlerfall müssen alle Variablen im Log erscheinen."
+        - "Debugging sollte mit system_log.write und Trace-Funktion unterstützt werden."
       compatibility_and_yaml:
-        - "Nur offiziell dokumentierte YAML-Keys und Selektoren verwenden"
-        - "Blueprint muss mit Home Assistant 2025.4+ lauffähig sein"
-        - "Keine !input-Referenzen im Trigger"
-        - "Keine Makros im Blueprint-Header, nur in Actions"
+        - "Nur offiziell dokumentierte YAML-Keys und Selektoren verwenden."
+        - "Blueprint muss mit Home Assistant 2025.4+ lauffähig sein."
+        - "Keine !input-Referenzen im Trigger."
+        - "Keine Makros im Blueprint-Header, nur in Actions."
+        - "Blueprint muss nach jedem HA-Update (Release Notes!) getestet werden."
       blueprint_documentation:
-        - "Changelog aktuell halten"
-        - "Bekannte Einschränkungen und Testhinweise dokumentieren"
-        - "Alle Inputs und Trigger im Blueprint klar beschreiben"
+        - "Changelog aktuell halten."
+        - "Bekannte Einschränkungen und Testhinweise dokumentieren."
+        - "Alle Inputs und Trigger im Blueprint klar beschreiben."
+        - "Blueprint sollte Beispielkonfiguration und Hinweise zu Backups und Fehlerdiagnose enthalten."
+      readability_and_maintainability:
+        - "Automationen und Blueprints sollten so einfach und flach wie möglich gehalten werden."
+        - "Keine unnötigen Verschachtelungen, keine überflüssigen choose/repeat-Blöcke."
+        - "Kommentare und Struktur für spätere Anpassungen und Debugging bereitstellen."
       defensive_templates:
-        - "Jede Variable mit Fallback-Wert absichern"
-        - "Sensor-/Entity-Attribute immer auf Verfügbarkeit prüfen"
-        - "Makros und Bedingungen gegen leere oder ungültige Werte absichern"
+        - "Jede Variable mit Fallback-Wert absichern."
+        - "Sensor-/Entity-Attribute immer auf Verfügbarkeit prüfen."
+        - "Makros und Bedingungen gegen leere oder ungültige Werte absichern."
       trigger_time_validation:
-        - "Keine dynamischen Jinja2-Templates im Zeit-Trigger (at: ...)"
-        - "Dynamische Zeitberechnung nur in Bedingungen/Aktionen"
-        - "time_pattern-Trigger für dynamische Zeitberechnung verwenden"
+        - "Keine dynamischen Jinja2-Templates im Zeit-Trigger (at: ...)."
+        - "Dynamische Zeitberechnung nur in Bedingungen/Aktionen."
+        - "time_pattern-Trigger für dynamische Zeitberechnung verwenden."
       testability_logging:
-        - "Logging für alle kritischen Aktionen und Variablen aktivieren"
-        - "Blueprint muss auch bei fehlenden oder fehlerhaften Inputs stabil laufen"
+        - "Logging für alle kritischen Aktionen und Variablen aktivieren."
+        - "Blueprint muss auch bei fehlenden oder fehlerhaften Inputs stabil laufen."
       group_duplicate_logic:
-        - "Leere Gruppen mit default([]) behandeln"
-        - "Duplikate zwischen Gruppen entfernen"
+        - "Leere Gruppen mit default([]) behandeln."
+        - "Duplikate zwischen Gruppen entfernen."
       compatibility:
-        - "Blueprint muss mit Home Assistant 2025.4+ lauffähig sein"
-        - "Nur offiziell dokumentierte YAML-Keys und Selektoren verwenden"
+        - "Blueprint muss mit Home Assistant 2025.4+ lauffähig sein."
+        - "Nur offiziell dokumentierte YAML-Keys und Selektoren verwenden."
       parallel_execution:
-        - "mode: parallel für Automatisierungen mit manuellen Triggern"
-        - "max: 5-10 für Lastverteilung bei parallelem Modus"
+        - "mode: parallel für Automatisierungen mit manuellen Triggern."
+        - "max: 5-10 für Lastverteilung bei parallelem Modus."
       trigger_resilience:
-        - "UTC-basierte Zeitstempel für saisonale Berechnungen"
-        - "Fallback-Event für manuelle Steuerung"
+        - "UTC-basierte Zeitstempel für saisonale Berechnungen."
+        - "Fallback-Event für manuelle Steuerung."
       entity_handling:
-        - "Case-sensitive Entity-ID-Prüfung"
-        - "Domain-Filterung (z.B. cover.*)"
+        - "Case-sensitive Entity-ID-Prüfung."
+        - "Domain-Filterung (z.B. cover.*)."
       mode_config:
-        - "mode: queued/parallel für Zeit-basierte Automatisierungen"
-        - "max_exceeded: silent/error"
+        - "mode: queued/parallel für Zeit-basierte Automatisierungen."
+        - "max_exceeded: silent/error."
       trigger_context:
-        - "Jeder Zugriff auf trigger.* muss mit 'trigger is defined' abgesichert werden"
-        - "Manuelle Auslösung muss ohne trigger-Kontext funktionieren"
+        - "Jeder Zugriff auf trigger.* muss mit 'trigger is defined' abgesichert werden."
+        - "Manuelle Auslösung muss ohne trigger-Kontext funktionieren."
       patterns:
-        - "UTC/Lokalzeit-Konvertierung"
-        - "Sommerzeit-Übergangsbehandlung"
-        - "Throttle/Delay-Implementierung"
+        - "UTC/Lokalzeit-Konvertierung."
+        - "Sommerzeit-Übergangsbehandlung."
+        - "Throttle/Delay-Implementierung."
 
     performance_checks:
       description: "Laufzeitoptimierung"
@@ -155,12 +172,20 @@ blueprint_validation:
   error_classification:
     - type: "Kritischer Fehler"
       examples: 
+        - "Input direkt als Jinja2-Variable im Action-Block verwendet ({{ input_name }})"
+        - "Variable im Action-Block nicht über !input im Header zugewiesen"
+        - "Jinja2-Blockstatement ({% ... %}) oder Listenoperation in Action-Variable"
         - "input.group1_covers in Action oder Bedingung verwendet"
         - "Makros im Blueprint-Header"
         - "Keine Fallback-Werte für Variablen/Makros"
         - "None/undefined Rückgabe bei Variablen"
         - "Typumwandlung ohne Fallback"
         - "Sensor-/Entity-Attribute ungeprüft"
+        - "strptime als Filter verwendet"
+        - "Funktionsnamen (str, now, strptime, strftime) als Variablennamen"
+        - "Direkter Zugriff auf states.entity.state"
+        - "Unplausible Zeit/Datum-Inputs (z.B. Endzeit < Startzeit)"
+        - "Listen-Input nicht als Variable mit !input im Header zugewiesen"
         - "Templates im Trigger (at: \"{{ ... }}\")"
         - "Dynamische Zeitberechnung im Trigger"
         - "Blueprint bricht bei fehlenden Inputs ab"
@@ -169,6 +194,7 @@ blueprint_validation:
         - "Fehlendes Logging bei fehleranfälligen Actions"
         - "Nicht dokumentierte YAML-Keys/Selektoren"
         - "!input-Referenz im Trigger"
+        - "Automationen unnötig verschachtelt"
       priority: "high"
     - type: "Logikfehler"
       examples: 
@@ -178,6 +204,8 @@ blueprint_validation:
         - "Fehlende Fehlerbehandlung bei Typumwandlungen"
         - "Domain-Mismatch bei Entity-Referenz"
         - "Fehlende Prüfung auf Duplikate"
+        - "Fehlende Validierung/Korrektur bei Zeit-Inputs"
+        - "Fehlende Kommentare/Struktur für Wartung"
       priority: "medium"
     - type: "Warnung"
       examples: 
@@ -185,6 +213,7 @@ blueprint_validation:
         - "Changelog nicht aktuell"
         - "Fehlende Testhinweise"
         - "Inputs/Trigger nicht klar beschrieben"
+        - "Fehlende Hinweise zu Backups/Diagnose"
       priority: "low"
 
   test_methods:
@@ -207,6 +236,13 @@ blueprint_validation:
       - "Sensor-/Entity-Attribute-Verfügbarkeitsprüfung"
       - "Keine !input-Referenzen im Trigger"
       - "Blueprint-Dokumentationsprüfung"
+      - "strptime als Filter-Erkennung"
+      - "Variablennamen-Konflikt mit Funktionsnamen"
+      - "Direkter Zugriff auf states.entity.state"
+      - "Plausibilitätsprüfung für Zeit-/Datums-Inputs"
+      - "Verschachtelungstiefe und Block-Komplexität"
+      - "Prüfung auf Jinja2-Blockstatements in Action-Variablen"
+      - "Prüfung auf Listen-Inputs ohne !input-Zuweisung im Header"
     manual:
       - "HA-Neustart-Simulation"
       - "DST-Übergangstests (März/Oktober)"
@@ -214,6 +250,7 @@ blueprint_validation:
       - "Leere Eingabegruppen-Simulation"
       - "Fehlende/fehlerhafte Input-Simulation"
       - "Review der Blueprint-Dokumentation"
+      - "Manuelle Prüfung auf Backups und Fehlerdiagnose-Hinweise"
 
   output_format:
     status: "pass/warn/error"
@@ -232,6 +269,13 @@ blueprint_validation:
       - "Typumwandlung ohne Fallback"
       - "Nicht dokumentierte YAML-Keys"
       - "Dokumentationslücken"
+      - "strptime als Filter"
+      - "Variablennamen-Konflikt"
+      - "Direkter Zugriff auf states.entity.state"
+      - "Unplausible Zeit/Datum-Inputs"
+      - "Übermäßige Verschachtelung"
+      - "Jinja2-Blockstatement in Action-Variable"
+      - "Listen-Input ohne !input-Zuweisung"
     stats:
       - "critical_count"
       - "domain_errors"
@@ -242,3 +286,4 @@ blueprint_validation:
       - "defensive_programming_issues"
       - "logging_issues"
       - "documentation_issues"
+      - "readability_issues"
